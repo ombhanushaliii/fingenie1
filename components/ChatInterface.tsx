@@ -83,7 +83,13 @@ export default function ChatInterface() {
     };
 
     return (
-        <div className="flex h-screen w-full bg-[#0a0a0a] text-gray-100 font-sans overflow-hidden">
+        <div className="flex h-screen w-full bg-[#0a0a0a] text-gray-100 font-sans overflow-hidden relative">
+
+            {/* Background Animations - Fixed to prevent stretching */}
+            <div className="fixed inset-0 z-0 bg-[#0a0a0a]">
+                <ShootingStars />
+                <StarBackground starDensity={0.0002} allStarsTwinkle={true} twinkleProbability={0.8} minTwinkleSpeed={0.6} maxTwinkleSpeed={1.2} />
+            </div>
 
             {/* Sidebar */}
             <motion.div
@@ -95,15 +101,18 @@ export default function ChatInterface() {
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 className="bg-[#0a0a0a] border-r border-white/5 flex flex-col z-20 overflow-hidden shrink-0"
             >
-                {/* Sidebar Header */}
-                <div className="p-4 flex items-center justify-between min-w-[256px]">
-                    <div className="flex items-center gap-2">
-                        <Sparkles className="w-5 h-5 text-white" />
-                        <span className="font-semibold text-sm tracking-wide text-white">Fingenie</span>
+                {/* Sidebar Header (Visible when open) */}
+                <div className="flex items-start pt-3 pl-2 pr-4 min-w-[256px] justify-between">
+                    <div className="-mt-3 w-15 h-15 relative shrink-0">
+                        <img
+                            src="/logo.png"
+                            alt="Fingenie"
+                            className="w-full h-full object-contain"
+                        />
                     </div>
                     <button
                         onClick={() => setIsSidebarOpen(false)}
-                        className="text-gray-500 hover:text-white transition-colors"
+                        className="text-gray-500 hover:text-white transition-colors p-1.5 hover:bg-[#1a1a1a] rounded-lg mt-1"
                     >
                         <PanelLeftClose className="w-4 h-4" />
                     </button>
@@ -147,7 +156,8 @@ export default function ChatInterface() {
             </motion.div>
 
             {/* Main Content Area */}
-            <div className="flex-1 relative flex flex-col min-w-0">
+            <div className="flex-1 relative flex flex-col min-w-0 z-10">
+
                 {/* Open Sidebar Button */}
                 <AnimatePresence>
                     {!isSidebarOpen && (
@@ -157,22 +167,27 @@ export default function ChatInterface() {
                             exit={{ opacity: 0, x: -20 }}
                             transition={{ duration: 0.2 }}
                             onClick={() => setIsSidebarOpen(true)}
-                            className="absolute top-4 left-4 z-30 p-2 text-gray-500 hover:text-white bg-[#1a1a1a]/50 hover:bg-[#1a1a1a] backdrop-blur-md rounded-lg border border-white/5 transition-colors"
+                            className="absolute top-4 left-4 z-50 p-1.5 text-gray-500 hover:text-white bg-[#1a1a1a]/50 hover:bg-[#1a1a1a] backdrop-blur-md rounded-lg border border-white/5 transition-colors"
                         >
                             <PanelLeftClose className="w-4 h-4 rotate-180" />
                         </motion.button>
                     )}
                 </AnimatePresence>
 
-                {/* Background Animations */}
-                <div className="absolute inset-0 z-0 bg-[#0a0a0a]">
-                    <ShootingStars />
-                    <StarBackground starDensity={0.0002} allStarsTwinkle={true} twinkleProbability={0.8} minTwinkleSpeed={0.6} maxTwinkleSpeed={1.2} />
+                {/* Main Header */}
+                <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between z-30">
+                    <motion.div
+                        animate={{ x: isSidebarOpen ? 0 : 44 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                        className="flex items-center gap-2"
+                    >
+                        <span className="font-semibold text-lg tracking-tight text-white/90">FinGenie</span>
+                    </motion.div>
                 </div>
 
                 {/* Chat Container */}
                 <div className="flex-1 overflow-y-auto scrollbar-hide z-10 relative w-full">
-                    <div className="max-w-3xl mx-auto px-4 pt-10 pb-40 min-h-full flex flex-col justify-end">
+                    <div className="max-w-3xl mx-auto px-4 pt-20 pb-40 min-h-full flex flex-col justify-end">
                         <AnimatePresence initial={false} mode="popLayout">
                             {messages.map((msg) => (
                                 <motion.div
@@ -190,7 +205,7 @@ export default function ChatInterface() {
                                                     <User className="w-4 h-4 text-gray-400" />
                                                 </div>
                                             ) : (
-                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center shadow-sm">
+                                                <div className="w-8 h-8 rounded-full bg-linear-to-br from-blue-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center shadow-sm">
                                                     <Bot className="w-5 h-5 text-white" />
                                                 </div>
                                             )}
@@ -199,8 +214,8 @@ export default function ChatInterface() {
                                         {/* Message Bubble */}
                                         <div
                                             className={`px-6 py-4 rounded-3xl shadow-md leading-relaxed text-[15px] backdrop-blur-sm ${msg.role === "user"
-                                                    ? "bg-[#1a1a1a]/80 text-gray-100 border border-white/5"
-                                                    : "bg-transparent text-gray-200 pl-0"
+                                                ? "bg-[#1a1a1a]/80 text-gray-100 border border-white/5"
+                                                : "bg-transparent text-gray-200 pl-0"
                                                 }`}
                                         >
                                             <div className="prose prose-invert max-w-none prose-p:leading-7 prose-pre:bg-[#111] prose-pre:border prose-pre:border-white/5 prose-pre:rounded-xl">
@@ -249,8 +264,8 @@ export default function ChatInterface() {
                 </div>
 
                 {/* Input Area */}
-                <div className="absolute bottom-0 left-0 right-0 p-6 z-20 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent pointer-events-none">
-                    <div className="max-w-3xl mx-auto pointer-events-auto">
+                <div className="absolute bottom-0 left-0 right-0 p-6 z-20 bg-linear-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent pointer-events-none">
+                    <div className="max-w-3xl mx-auto px-4 pointer-events-auto">
                         {/* Input Pill */}
                         <div className="relative w-full">
                             <div className="relative flex items-center bg-[#1a1a1a]/90 backdrop-blur-xl rounded-[32px] ring-1 ring-white/10 focus-within:ring-white/20 p-2 shadow-2xl shadow-black/50 transition-all duration-200 group">
@@ -283,8 +298,8 @@ export default function ChatInterface() {
                                         onClick={handleSend}
                                         disabled={!input.trim()}
                                         className={`p-2 rounded-full transition-all duration-200 ${input.trim()
-                                                ? "bg-white text-black shadow-lg shadow-white/10"
-                                                : "bg-[#2a2a2a] text-gray-600 cursor-not-allowed"
+                                            ? "bg-white text-black shadow-lg shadow-white/10"
+                                            : "bg-[#2a2a2a] text-gray-600 cursor-not-allowed"
                                             }`}
                                     >
                                         <Send className="w-5 h-5 ml-0.5" />
