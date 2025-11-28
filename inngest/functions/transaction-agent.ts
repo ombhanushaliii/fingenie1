@@ -12,12 +12,13 @@ export const transactionAgent = inngest.createFunction(
 
         // Step 1: Parse transaction or intent from natural language using Gemini
         const parsePrompt = `
-      Analyze the user input. Determine if they want to LOG a transaction or GET their balance. All the amounts will be in INR
+      Analyze the user input. Determine if they want to LOG transactions or GET their balance. All the amounts will be in INR.
+      The user might provide multiple transactions in a single sentence.
       
       Return JSON:
       { 
         "intent": "log_transaction" | "get_balance",
-        "transaction": { "type": "income|expense|savings", "category": "string", "amount": number, "date": "YYYY-MM-DD", "description": "string" } 
+        "transactions": [{ "type": "income|expense|savings", "category": "string", "amount": number, "date": "YYYY-MM-DD", "description": "string" }] 
       }
       
       User input: "${message}"
@@ -33,9 +34,9 @@ export const transactionAgent = inngest.createFunction(
             };
         }
 
-        const transactionData = result?.transaction;
+        const transactions = result?.transactions;
 
-        if (!transactionData || !transactionData.amount) {
+        if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
             return {
                 agent: 'transaction',
                 error: 'Could not parse transaction',
@@ -43,34 +44,46 @@ export const transactionAgent = inngest.createFunction(
             };
         }
 
-        // Step 2: Store in MongoDB
-        console.log(`[Transaction Agent] Creating transaction for user: ${profile.userId}`);
-        const newTransaction: any = await Transaction.create({
-            transactionId: `txn_${Date.now()}`,
-            userId: profile.userId, // Assuming profile has userId
-            ...transactionData,
-            date: transactionData.date ? new Date(transactionData.date) : new Date(),
-        });
+        const processedTransactions = [];
+        let totalIncome = 0;
+        let totalExpense = 0;
 
-        // Step 2.5: Update User Balance
-        console.log(`[Transaction Agent] Updating balance for type: ${transactionData.type}, Amount: ${transactionData.amount}`);
-        if (transactionData.type === 'income') {
-            const updateRes = await User.updateOne({ userId: profile.userId }, { $inc: { 'profile.balance': transactionData.amount } });
-            console.log(`[Transaction Agent] Income update result:`, updateRes);
-        } else if (transactionData.type === 'expense') {
-            const updateRes = await User.updateOne({ userId: profile.userId }, { $inc: { 'profile.balance': -transactionData.amount } });
-            console.log(`[Transaction Agent] Expense update result:`, updateRes);
+        // Step 2: Store in MongoDB and Update Balance
+        for (const transactionData of transactions) {
+            if (!transactionData.amount) continue;
+
+            console.log(`[Transaction Agent] Creating transaction for user: ${profile.userId}`);
+            const newTransaction: any = await Transaction.create({
+                transactionId: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                userId: profile.userId, // Assuming profile has userId
+                ...transactionData,
+                date: transactionData.date ? new Date(transactionData.date) : new Date(),
+            });
+
+            processedTransactions.push(transactionData);
+
+            // Step 2.5: Update User Balance
+            console.log(`[Transaction Agent] Updating balance for type: ${transactionData.type}, Amount: ${transactionData.amount}`);
+            if (transactionData.type === 'income') {
+                const updateRes = await User.updateOne({ userId: profile.userId }, { $inc: { 'profile.balance': transactionData.amount } });
+                console.log(`[Transaction Agent] Income update result:`, updateRes);
+                totalIncome += transactionData.amount;
+            } else if (transactionData.type === 'expense') {
+                const updateRes = await User.updateOne({ userId: profile.userId }, { $inc: { 'profile.balance': -transactionData.amount } });
+                console.log(`[Transaction Agent] Expense update result:`, updateRes);
+                totalExpense += transactionData.amount;
+            }
         }
 
         // Step 3: Generate summary response
         const response = await geminiChat(
-            `Transaction recorded: ${JSON.stringify(transactionData)}. Provide brief confirmation.`
+            `Transactions recorded: ${JSON.stringify(processedTransactions)}. Provide brief confirmation.`
         );
 
         return {
             agent: 'transaction',
-            transaction: transactionData,
-            confirmationMessage: `Transaction recorded.`,
+            transactions: processedTransactions,
+            confirmationMessage: `Recorded ${processedTransactions.length} transactions. Income: ${totalIncome}, Expense: ${totalExpense}`,
         };
     }
 );
