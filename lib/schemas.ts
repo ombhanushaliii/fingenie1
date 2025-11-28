@@ -9,6 +9,7 @@ export interface IUser extends Document {
         age?: number;
         riskProfile?: 'conservative' | 'moderate' | 'aggressive';
         occupation?: string;
+        balance?: number;
     };
     goals: Array<{
         goalId: string;
@@ -30,6 +31,7 @@ const UserSchema = new Schema<IUser>(
             age: Number,
             riskProfile: { type: String, enum: ['conservative', 'moderate', 'aggressive'] },
             occupation: String,
+            balance: { type: Number, default: 0 },
         },
         goals: [
             {
@@ -99,6 +101,15 @@ const ConversationSchema = new Schema<IConversation>(
 );
 
 // Export Models
+// Export Models
+// Prevent Mongoose OverwriteModelError by checking if model exists
+// In development, we want to delete the model to ensure schema updates are applied
+if (process.env.NODE_ENV === 'development') {
+    if (mongoose.models.User) delete mongoose.models.User;
+    if (mongoose.models.Transaction) delete mongoose.models.Transaction;
+    if (mongoose.models.Conversation) delete mongoose.models.Conversation;
+}
+
 export const User = mongoose.models.User || mongoose.model<IUser>('User', UserSchema);
 export const Transaction =
     mongoose.models.Transaction || mongoose.model<ITransaction>('Transaction', TransactionSchema);

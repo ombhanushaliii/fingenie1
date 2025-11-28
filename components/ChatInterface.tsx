@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -17,18 +18,18 @@ import StarBackground from "@/components/ui/stars-background";
 
 // Type declarations for Speech Recognition API
 declare global {
-  interface Window {
-    SpeechRecognition: any;
-    webkitSpeechRecognition: any;
-  }
+    interface Window {
+        SpeechRecognition: any;
+        webkitSpeechRecognition: any;
+    }
 }
 
 interface SpeechRecognitionEvent extends Event {
-  results: SpeechRecognitionResultList;
+    results: SpeechRecognitionResultList;
 }
 
 interface SpeechRecognitionErrorEvent extends Event {
-  error: string;
+    error: string;
 }
 
 const PRE_PROMPTS = [
@@ -58,6 +59,7 @@ export default function ChatInterface() {
             content: "Of course! A strong visual can really make the problem resonate.\n\nHere's a concept you might like:\n\n**Imagine a freelancer at a chaotic desk, overwhelmed by multiple floating tools — invoices, chats, spreadsheets, payment apps — all fighting for attention.**"
         }
     ]);
+    const { data: session } = useSession();
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -168,7 +170,8 @@ export default function ChatInterface() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message: userMsg.content,
-                    image: userMsg.image
+                    image: userMsg.image,
+                    userId: session?.user?.email // Send explicit userId as backup
                 }),
             });
 
@@ -177,7 +180,10 @@ export default function ChatInterface() {
             // Poll for response
             const pollInterval = setInterval(async () => {
                 try {
-                    const pollRes = await fetch('/api/chat');
+                    const pollUrl = session?.user?.email
+                        ? `/api/chat?userId=${encodeURIComponent(session.user.email)}`
+                        : '/api/chat';
+                    const pollRes = await fetch(pollUrl);
                     const data = await pollRes.json();
 
                     if (data.messages && data.messages.length > 0) {
@@ -203,11 +209,11 @@ export default function ChatInterface() {
                 }
             }, 2000);
 
-            // Stop polling after 30 seconds to prevent infinite loops
+            // Stop polling after 60 seconds to prevent infinite loops
             setTimeout(() => {
                 clearInterval(pollInterval);
                 setIsTyping(false);
-            }, 30000);
+            }, 60000);
 
         } catch (error) {
             console.error(error);
