@@ -8,7 +8,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import {
     Send, Sparkles, User, Bot, Mic, Image as ImageIcon,
-    Plus, Folder, Settings, MessageSquare, ChevronDown, PanelLeftClose
+    Plus, Folder, Settings, MessageSquare, ChevronDown, PanelLeftClose, X
 } from "lucide-react";
 import UserAvatar from "./UserAvatar";
 import TypingIndicator from "./TypingIndicator";
@@ -42,6 +42,7 @@ interface Message {
     id: number;
     role: "user" | "assistant";
     content: string;
+    image?: string; // base64 encoded image
 }
 
 export default function ChatInterface() {
@@ -61,9 +62,11 @@ export default function ChatInterface() {
     const [isTyping, setIsTyping] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isListening, setIsListening] = useState(false);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const recognitionRef = useRef<any>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -123,19 +126,50 @@ export default function ChatInterface() {
         }
     };
 
-    const handleSend = async () => {
-        if (!input.trim()) return;
+    const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const result = e.target?.result as string;
+                setSelectedImage(result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
-        const userMsg: Message = { id: Date.now(), role: "user", content: input };
+    const removeImage = () => {
+        setSelectedImage(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const handleSend = async () => {
+        if (!input.trim() && !selectedImage) return;
+
+        const userMsg: Message = {
+            id: Date.now(),
+            role: "user",
+            content: input,
+            image: selectedImage || undefined
+        };
         setMessages((prev) => [...prev, userMsg]);
         setInput("");
+        setSelectedImage(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
         setIsTyping(true);
 
         try {
             const res = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: userMsg.content }),
+                body: JSON.stringify({
+                    message: userMsg.content,
+                    image: userMsg.image
+                }),
             });
 
             if (!res.ok) throw new Error('Failed to send message');
@@ -318,6 +352,15 @@ export default function ChatInterface() {
                                                 : "bg-transparent text-gray-200 pl-0"
                                                 }`}
                                         >
+                                            {msg.image && (
+                                                <div className="mb-4">
+                                                    <img
+                                                        src={msg.image}
+                                                        alt="Attached image"
+                                                        className="max-w-full h-auto rounded-xl border border-white/10"
+                                                    />
+                                                </div>
+                                            )}
                                             <div className="prose prose-invert max-w-none prose-p:leading-7 prose-pre:bg-[#111] prose-pre:border prose-pre:border-white/5 prose-pre:rounded-xl">
                                                 <ReactMarkdown
                                                     remarkPlugins={[remarkGfm]}
@@ -369,9 +412,21 @@ export default function ChatInterface() {
                         {/* Input Pill */}
                         <div className="relative w-full">
                             <div className="relative flex items-center bg-[#1a1a1a]/90 backdrop-blur-xl rounded-[32px] ring-1 ring-white/10 focus-within:ring-white/20 p-2 shadow-2xl shadow-black/50 transition-all duration-200 group">
-                                <button className="p-3 text-gray-500 hover:text-white transition-colors rounded-full hover:bg-white/5" aria-label="Attach image">
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="p-3 text-gray-500 hover:text-white transition-colors rounded-full hover:bg-white/5"
+                                    aria-label="Attach image"
+                                >
                                     <ImageIcon className="w-5 h-5" />
                                 </button>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageSelect}
+                                    className="hidden"
+                                    aria-label="Select image to attach"
+                                />
 
                                 <textarea
                                     ref={textareaRef}
@@ -400,8 +455,8 @@ export default function ChatInterface() {
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
                                         onClick={handleSend}
-                                        disabled={!input.trim()}
-                                        className={`p-2 rounded-full transition-all duration-200 ${input.trim()
+                                        disabled={!input.trim() && !selectedImage}
+                                        className={`p-2 rounded-full transition-all duration-200 ${(input.trim() || selectedImage)
                                             ? "bg-white text-black shadow-lg shadow-white/10"
                                             : "bg-[#2a2a2a] text-gray-600 cursor-not-allowed"
                                             }`}
@@ -410,6 +465,26 @@ export default function ChatInterface() {
                                     </motion.button>
                                 </div>
                             </div>
+
+                            {/* Image Preview */}
+                            {selectedImage && (
+                                <div className="relative w-full max-w-3xl mx-auto mt-4">
+                                    <div className="relative inline-block">
+                                        <img
+                                            src={selectedImage}
+                                            alt="Selected image"
+                                            className="max-w-32 max-h-32 rounded-xl border border-white/10 object-cover"
+                                        />
+                                        <button
+                                            onClick={removeImage}
+                                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-colors"
+                                            aria-label="Remove image"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Pre-prompts (Below Input) */}
                             {messages.length < 3 && (
