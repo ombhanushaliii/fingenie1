@@ -15,6 +15,22 @@ import TypingIndicator from "./TypingIndicator";
 import ShootingStars from "@/components/ui/shooting-stars";
 import StarBackground from "@/components/ui/stars-background";
 
+// Type declarations for Speech Recognition API
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
+
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+
 const PRE_PROMPTS = [
     "How should I invest my freelance income?",
     "What's a good savings plan for irregular income?",
@@ -44,8 +60,10 @@ export default function ChatInterface() {
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [isListening, setIsListening] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const recognitionRef = useRef<any>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -61,6 +79,49 @@ export default function ChatInterface() {
             textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
         }
     }, [input]);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (SpeechRecognition) {
+                const recognition = new SpeechRecognition();
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+
+                recognition.onresult = (event: SpeechRecognitionEvent) => {
+                    const transcript = event.results[0][0].transcript;
+                    setInput((prev) => prev + transcript);
+                };
+
+                recognition.onend = () => {
+                    setIsListening(false);
+                };
+
+                recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+                    console.error('Speech recognition error:', event.error);
+                    setIsListening(false);
+                };
+
+                recognitionRef.current = recognition;
+            } else {
+                console.warn('Speech recognition not supported in this browser.');
+            }
+        }
+    }, []);
+
+    const startListening = () => {
+        if (recognitionRef.current && !isListening) {
+            setIsListening(true);
+            recognitionRef.current.start();
+        }
+    };
+
+    const stopListening = () => {
+        if (recognitionRef.current && isListening) {
+            recognitionRef.current.stop();
+        }
+    };
 
     const handleSend = async () => {
         if (!input.trim()) return;
@@ -151,6 +212,7 @@ export default function ChatInterface() {
                     <button
                         onClick={() => setIsSidebarOpen(false)}
                         className="text-gray-500 hover:text-white transition-colors p-1.5 hover:bg-[#1a1a1a] rounded-lg mt-1"
+                        aria-label="Close sidebar"
                     >
                         <PanelLeftClose className="w-4 h-4" />
                     </button>
@@ -307,7 +369,7 @@ export default function ChatInterface() {
                         {/* Input Pill */}
                         <div className="relative w-full">
                             <div className="relative flex items-center bg-[#1a1a1a]/90 backdrop-blur-xl rounded-[32px] ring-1 ring-white/10 focus-within:ring-white/20 p-2 shadow-2xl shadow-black/50 transition-all duration-200 group">
-                                <button className="p-3 text-gray-500 hover:text-white transition-colors rounded-full hover:bg-white/5">
+                                <button className="p-3 text-gray-500 hover:text-white transition-colors rounded-full hover:bg-white/5" aria-label="Attach image">
                                     <ImageIcon className="w-5 h-5" />
                                 </button>
 
@@ -327,8 +389,12 @@ export default function ChatInterface() {
                                 />
 
                                 <div className="flex items-center gap-3 pr-1">
-                                    <button className="p-2 text-gray-500 hover:text-white transition-colors rounded-full hover:bg-white/5">
-                                        <Mic className="w-5 h-5" />
+                                    <button
+                                        onClick={isListening ? stopListening : startListening}
+                                        className={`p-2 transition-colors rounded-full hover:bg-white/5 ${isListening ? 'text-red-400 hover:text-red-300' : 'text-gray-500 hover:text-white'}`}
+                                        aria-label={isListening ? 'Stop listening' : 'Start voice input'}
+                                    >
+                                        <Mic className={`w-5 h-5 ${isListening ? 'animate-pulse' : ''}`} />
                                     </button>
                                     <motion.button
                                         whileHover={{ scale: 1.05 }}

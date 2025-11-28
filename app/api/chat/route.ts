@@ -4,7 +4,7 @@ import { inngest } from '@/lib/inngest';
 import dbConnect from '@/lib/db';
 import { Conversation } from '@/lib/schemas';
 
-export async function POST(req: NextRequest) {
+export async function POST(req:  NextRequest) {
     await dbConnect();
 
     const session = await getServerSession();
