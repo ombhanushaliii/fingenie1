@@ -30,7 +30,7 @@ export default function ThinkingIndicator({ thinkingPhraseIndex }: ThinkingIndic
 
                 {/* Skeleton Loading */}
                 <div className="space-y-3 flex-1 mt-2">
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <div className="flex items-center gap-2 text-sm text-gray-500 whitespace-nowrap h-6">
                         <div className="flex gap-1">
                             <motion.div
                                 animate={{ opacity: [0.4, 1, 0.4] }}
@@ -60,25 +60,6 @@ export default function ThinkingIndicator({ thinkingPhraseIndex }: ThinkingIndic
                                 {THINKING_PHRASES[thinkingPhraseIndex]}
                             </motion.span>
                         </AnimatePresence>
-                    </div>
-
-                    {/* Skeleton lines */}
-                    <div className="space-y-2">
-                        <motion.div
-                            animate={{ opacity: [0.3, 0.6, 0.3] }}
-                            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                            className="h-4 bg-white/5 rounded-md w-full"
-                        />
-                        <motion.div
-                            animate={{ opacity: [0.3, 0.6, 0.3] }}
-                            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
-                            className="h-4 bg-white/5 rounded-md w-5/6"
-                        />
-                        <motion.div
-                            animate={{ opacity: [0.3, 0.6, 0.3] }}
-                            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
-                            className="h-4 bg-white/5 rounded-md w-4/6"
-                        />
                     </div>
                 </div>
             </div>
