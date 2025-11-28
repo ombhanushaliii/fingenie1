@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { Send, Sparkles, User, Bot } from "lucide-react";
+import { Send, Sparkles, User, Bot, Mic, Image as ImageIcon, Globe } from "lucide-react";
 import UserAvatar from "./UserAvatar";
 import TypingIndicator from "./TypingIndicator";
 
@@ -77,163 +77,160 @@ export default function ChatInterface() {
     };
 
     return (
-        <div className="flex flex-col h-screen max-w-5xl mx-auto px-4 relative bg-[#040404] text-white font-sans">
+        <div className="flex flex-col h-screen w-full relative bg-[#0a0a0a] text-gray-100 font-sans overflow-hidden">
             {/* Header */}
-            <header className="flex justify-between items-center py-6 border-b border-white/5 backdrop-blur-md sticky top-0 z-10 bg-[#040404]/80">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-linear-to-br from-[#2d8cff] to-[#6ec0ff] rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                        <Sparkles className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                        <h1 className="text-xl font-bold tracking-tight">Fingenie</h1>
-                        <p className="text-xs text-gray-400">AI Financial Assistant</p>
-                    </div>
+            <header className="absolute top-0 left-0 right-0 py-4 px-6 flex justify-between items-center z-20">
+                <div className="flex items-center gap-2 opacity-80 hover:opacity-100 transition-opacity">
+                    <Sparkles className="w-5 h-5 text-gray-400" />
+                    <span className="font-semibold text-sm tracking-wide text-gray-300">Fingenie</span>
                 </div>
-
-                <div className="flex items-center gap-4">
-                    <div className="bg-[#171717] px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2">
-                        <div className="w-2 h-2 bg-[#2d8cff] rounded-full animate-pulse"></div>
-                        <span className="text-xs text-gray-400 font-medium">Online</span>
-                    </div>
-                    <UserAvatar />
-                </div>
+                <UserAvatar />
             </header>
 
             {/* Chat Area */}
-            <div className="flex-1 overflow-y-auto py-8 space-y-6 scrollbar-hide px-2">
-                <AnimatePresence initial={false}>
-                    {messages.map((msg) => (
-                        <motion.div
-                            key={msg.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.4, ease: "easeOut" }}
-                            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                        >
-                            <div className={`flex max-w-3xl gap-4 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
-                                {/* Avatar */}
-                                <div className="shrink-0 mt-1">
-                                    {msg.role === "user" ? (
-                                        <div className="w-8 h-8 rounded-full bg-[#171717] border border-white/10 flex items-center justify-center">
-                                            <User className="w-4 h-4 text-gray-400" />
-                                        </div>
-                                    ) : (
-                                        <div className="w-8 h-8 rounded-full bg-linear-to-br from-[#2d8cff] to-[#6ec0ff] flex items-center justify-center shadow-md">
-                                            <Bot className="w-5 h-5 text-white" />
-                                        </div>
-                                    )}
-                                </div>
+            <div className="flex-1 overflow-y-auto scrollbar-hide w-full">
+                <div className="max-w-3xl mx-auto px-4 pt-24 pb-40 min-h-full flex flex-col justify-end">
+                    <AnimatePresence initial={false} mode="popLayout">
+                        {messages.map((msg) => (
+                            <motion.div
+                                key={msg.id}
+                                initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+                                className={`flex mb-8 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                            >
+                                <div className={`flex max-w-[85%] gap-4 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
+                                    {/* Avatar */}
+                                    <div className="shrink-0 mt-1">
+                                        {msg.role === "user" ? (
+                                            <div className="w-8 h-8 rounded-full bg-[#1a1a1a] border border-white/5 flex items-center justify-center">
+                                                <User className="w-4 h-4 text-gray-400" />
+                                            </div>
+                                        ) : (
+                                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                                                <Bot className="w-5 h-5 text-white" />
+                                            </div>
+                                        )}
+                                    </div>
 
-                                {/* Message Bubble */}
-                                <div
-                                    className={`p-5 rounded-2xl shadow-sm ${msg.role === "user"
-                                        ? "bg-[#171717] text-white border border-white/5 rounded-tr-none"
-                                        : "bg-transparent text-gray-200 rounded-tl-none"
-                                        }`}
-                                >
-                                    <div className="prose prose-invert max-w-none text-sm leading-relaxed">
-                                        <ReactMarkdown
-                                            remarkPlugins={[remarkGfm]}
-                                            components={{
-                                                code({ node, inline, className, children, ...props }: { node?: any; inline?: boolean; className?: string; children?: React.ReactNode;[key: string]: any }) {
-                                                    const match = /language-(\w+)/.exec(className || "");
-                                                    return !inline && match ? (
-                                                        <SyntaxHighlighter
-                                                            style={vscDarkPlus}
-                                                            language={match[1]}
-                                                            PreTag="div"
-                                                            {...props}
-                                                        >
-                                                            {String(children).replace(/\n$/, "")}
-                                                        </SyntaxHighlighter>
-                                                    ) : (
-                                                        <code className="bg-white/10 rounded px-1 py-0.5 text-blue-300" {...props}>
-                                                            {children}
-                                                        </code>
-                                                    );
-                                                }
-                                            }}
-                                        >
-                                            {msg.content}
-                                        </ReactMarkdown>
+                                    {/* Message Bubble */}
+                                    <div
+                                        className={`px-6 py-4 rounded-3xl shadow-sm leading-relaxed text-[15px] ${msg.role === "user"
+                                            ? "bg-[#1a1a1a] text-gray-100 border border-white/5"
+                                            : "bg-transparent text-gray-200 pl-0"
+                                            }`}
+                                    >
+                                        <div className="prose prose-invert max-w-none prose-p:leading-7 prose-pre:bg-[#111] prose-pre:border prose-pre:border-white/5 prose-pre:rounded-xl">
+                                            <ReactMarkdown
+                                                remarkPlugins={[remarkGfm]}
+                                                components={{
+                                                    code({ node, inline, className, children, ...props }: { node?: any; inline?: boolean; className?: string; children?: React.ReactNode;[key: string]: any }) {
+                                                        const match = /language-(\w+)/.exec(className || "");
+                                                        return !inline && match ? (
+                                                            <SyntaxHighlighter
+                                                                style={vscDarkPlus}
+                                                                language={match[1]}
+                                                                PreTag="div"
+                                                                {...props}
+                                                            >
+                                                                {String(children).replace(/\n$/, "")}
+                                                            </SyntaxHighlighter>
+                                                        ) : (
+                                                            <code className="bg-white/10 rounded px-1.5 py-0.5 text-blue-200 text-sm font-mono" {...props}>
+                                                                {children}
+                                                            </code>
+                                                        );
+                                                    }
+                                                }}
+                                            >
+                                                {msg.content}
+                                            </ReactMarkdown>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
+                            </motion.div>
+                        ))}
+                    </AnimatePresence>
 
-                {isTyping && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="flex justify-start pl-12"
-                    >
-                        <TypingIndicator />
-                    </motion.div>
-                )}
-                <div ref={messagesEndRef} />
+                    {isTyping && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="flex justify-start pl-14 mb-8"
+                        >
+                            <TypingIndicator />
+                        </motion.div>
+                    )}
+                    <div ref={messagesEndRef} />
+                </div>
             </div>
 
             {/* Input Area */}
-            <div className="pb-8 pt-4 bg-[#040404]">
-                {/* Pre-prompts */}
-                <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide mb-2 px-1">
-                    {PRE_PROMPTS.map((prompt, i) => (
-                        <motion.button
-                            key={i}
-                            whileHover={{ scale: 1.02, backgroundColor: "#222" }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() => setInput(prompt)}
-                            className="whitespace-nowrap px-4 py-2 bg-[#171717] border border-white/5 rounded-full text-sm text-gray-400 hover:text-white transition-colors duration-200 shadow-sm"
-                        >
-                            {prompt}
-                        </motion.button>
-                    ))}
-                </div>
+            <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a] to-transparent z-10">
+                <div className="max-w-3xl mx-auto">
+                    {/* Pre-prompts (only show if few messages or explicitly wanted, keeping for now but subtle) */}
+                    {messages.length < 3 && (
+                        <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide justify-center mb-2 overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                            {PRE_PROMPTS.map((prompt, i) => (
+                                <motion.button
+                                    key={i}
+                                    whileHover={{ scale: 1.02, backgroundColor: "#222" }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => setInput(prompt)}
+                                    className="whitespace-nowrap px-4 py-2 bg-[#1a1a1a] border border-white/5 rounded-full text-xs text-gray-400 hover:text-white transition-colors duration-200"
+                                >
+                                    {prompt}
+                                </motion.button>
+                            ))}
+                        </div>
+                    )}
 
-                {/* Input Field */}
-                <div className="relative group">
-                    <div className="absolute -inset-0.5 bg-linear-to-r from-[#2d8cff] to-[#6ec0ff] rounded-2xl opacity-20 group-hover:opacity-40 transition duration-500 blur-md"></div>
-                    <div className="relative flex items-end bg-[#0a0a0a] rounded-2xl border border-white/10 p-2 shadow-xl">
-                        <button className="p-3 text-gray-400 hover:text-white transition-colors rounded-xl hover:bg-white/5">
-                            <Sparkles className="w-5 h-5" />
-                        </button>
+                    {/* Input Pill */}
+                    <div className="relative group">
+                        <div className="absolute -inset-0.5 bg-white/10 rounded-[32px] opacity-0 group-hover:opacity-100 transition duration-500 blur-sm"></div>
+                        <div className="relative flex items-end bg-[#141414] rounded-[32px] border border-white/5 p-2 shadow-2xl">
+                            <button className="p-3 text-gray-500 hover:text-white transition-colors rounded-full hover:bg-white/5">
+                            </button>
 
-                        <textarea
-                            ref={textareaRef}
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter" && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleSend();
-                                }
-                            }}
-                            placeholder="Ask me something..."
-                            rows={1}
-                            className="flex-1 bg-transparent border-none outline-none text-white placeholder-gray-500 px-4 py-3 resize-none max-h-[200px] scrollbar-hide"
-                        />
+                            <textarea
+                                ref={textareaRef}
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter" && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleSend();
+                                    }
+                                }}
+                                placeholder="Ask anything..."
+                                rows={1}
+                                className="flex-1 bg-transparent border-none outline-none text-gray-100 placeholder-gray-500 px-4 py-3 resize-none max-h-[200px] scrollbar-hide text-[15px]"
+                            />
 
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={handleSend}
-                            disabled={!input.trim()}
-                            className={`p-3 rounded-xl transition-all duration-200 ${input.trim()
-                                ? "bg-[#2d8cff] text-white shadow-lg shadow-blue-500/20"
-                                : "bg-[#171717] text-gray-500 cursor-not-allowed"
-                                }`}
-                        >
-                            <Send className="w-5 h-5" />
-                        </motion.button>
+                            <div className="flex items-center gap-1 pr-1">
+                                <button className="p-2 text-gray-500 hover:text-white transition-colors rounded-full hover:bg-white/5">
+                                    <Mic className="w-5 h-5" />
+                                </button>
+                                <motion.button
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={handleSend}
+                                    disabled={!input.trim()}
+                                    className={`p-2 rounded-full transition-all duration-200 ${input.trim()
+                                        ? "bg-white text-black shadow-lg shadow-white/10"
+                                        : "bg-[#222] text-gray-600 cursor-not-allowed"
+                                        }`}
+                                >
+                                    <Send className="w-5 h-5 ml-0.5" />
+                                </motion.button>
+                            </div>
+                        </div>
+                        <div className="text-center mt-3">
+                            <p className="text-[10px] text-gray-600 tracking-wide font-medium">
+                                FINGENIE MAY DISPLAY INACCURATE INFO
+                            </p>
+                        </div>
                     </div>
-                </div>
-
-                <div className="text-center mt-4">
-                    <p className="text-xs text-gray-600">
-                        Fingenie can make mistakes. Consider checking important information.
-                    </p>
                 </div>
             </div>
         </div>
