@@ -1,5 +1,8 @@
 import "./globals.css";
 import AuthProvider from "@/components/AuthProvider";
+import { Space_Grotesk } from "next/font/google";
+
+const spaceGrotesk = Space_Grotesk({ subsets: ["latin"] });
 
 export default function RootLayout({
   children,
@@ -8,9 +11,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
+      <body className={spaceGrotesk.className}>
         <AuthProvider>
-          <div>{children}</div>
+          <div className="bg-[#040404] min-h-screen text-white">{children}</div>
         </AuthProvider>
       </body>
     </html>
