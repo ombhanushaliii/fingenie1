@@ -285,7 +285,7 @@ export default function ChatInterface() {
                                     }}
                                     placeholder="Ask anything..."
                                     rows={1}
-                                    className="flex-1 bg-transparent border-none outline-none text-gray-100 placeholder-gray-500 px-4 py-3 resize-none max-h-[200px] scrollbar-hide text-[15px] leading-relaxed"
+                                    className="flex-1 bg-transparent border-none outline-none text-gray-100 placeholder-gray-500 px-4 py-2 resize-none max-h-[200px] scrollbar-hide text-[15px] leading-relaxed"
                                 />
 
                                 <div className="flex items-center gap-3 pr-1">
@@ -306,29 +306,49 @@ export default function ChatInterface() {
                                     </motion.button>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Pre-prompts (Below Input) */}
-                        {messages.length < 3 && (
-                            <div className="flex gap-2 overflow-x-auto pt-4 pb-2 scrollbar-hide justify-center">
-                                {PRE_PROMPTS.map((prompt, i) => (
-                                    <motion.button
-                                        key={i}
-                                        whileHover={{ scale: 1.02, backgroundColor: "#222" }}
-                                        whileTap={{ scale: 0.98 }}
-                                        onClick={() => setInput(prompt)}
-                                        className="whitespace-nowrap px-4 py-2 bg-[#1a1a1a]/80 backdrop-blur-md border border-white/5 rounded-full text-xs text-gray-400 hover:text-white transition-colors duration-200 shadow-sm"
+                            {/* Pre-prompts (Below Input) */}
+                            {messages.length < 3 && (
+                                <div className="relative w-full max-w-3xl mx-auto mt-4">
+                                    {/* Vignette Overlay */}
+                                    <div
+                                        className="absolute inset-0 z-10 pointer-events-none"
+                                        style={{
+                                            background: "linear-gradient(to right, #0a0a0a 0%, transparent 2%, transparent 98%, #0a0a0a 100%)"
+                                        }}
+                                    />
+                                    <div
+                                        className="flex gap-2 overflow-x-auto pb-2 px-12 scrollbar-hide relative z-0"
+                                        style={{
+                                            scrollbarWidth: 'none',
+                                            msOverflowStyle: 'none'
+                                        }}
                                     >
-                                        {prompt}
-                                    </motion.button>
-                                ))}
-                            </div>
-                        )}
+                                        <style jsx>{`
+                                        .scrollbar-hide::-webkit-scrollbar {
+                                            display: none;
+                                        }
+                                    `}</style>
+                                        {PRE_PROMPTS.map((prompt, i) => (
+                                            <motion.button
+                                                key={i}
+                                                whileHover={{ scale: 1.02, backgroundColor: "#222" }}
+                                                whileTap={{ scale: 0.98 }}
+                                                onClick={() => setInput(prompt)}
+                                                className="whitespace-nowrap px-4 py-2 bg-[#1a1a1a]/80 backdrop-blur-md border border-white/5 rounded-full text-xs text-gray-400 hover:text-white transition-colors duration-200 shadow-sm shrink-0"
+                                            >
+                                                {prompt}
+                                            </motion.button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
-                        <div className="text-center mt-3">
-                            <p className="text-[10px] text-gray-600 tracking-wide font-medium">
-                                FINGENIE MAY DISPLAY INACCURATE INFO
-                            </p>
+                            <div className="text-center mt-3">
+                                <p className="text-[10px] text-gray-600 tracking-wide font-medium">
+                                    FINGENIE MAY DISPLAY INACCURATE INFO
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
