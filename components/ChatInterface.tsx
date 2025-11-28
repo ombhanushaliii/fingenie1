@@ -213,7 +213,7 @@ export default function ChatInterface() {
             setTimeout(() => {
                 clearInterval(pollInterval);
                 setIsTyping(false);
-            }, 60000);
+            }, 180000);
 
         } catch (error) {
             console.error(error);
