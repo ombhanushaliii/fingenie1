@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { Send, Sparkles, User, Bot, Mic, Image as ImageIcon, Globe } from "lucide-react";
+import { Send, Sparkles, User, Bot, Mic, Image as ImageIcon } from "lucide-react";
 import UserAvatar from "./UserAvatar";
 import TypingIndicator from "./TypingIndicator";
 
@@ -116,8 +116,8 @@ export default function ChatInterface() {
                                     {/* Message Bubble */}
                                     <div
                                         className={`px-6 py-4 rounded-3xl shadow-sm leading-relaxed text-[15px] ${msg.role === "user"
-                                            ? "bg-[#1a1a1a] text-gray-100 border border-white/5"
-                                            : "bg-transparent text-gray-200 pl-0"
+                                                ? "bg-[#1a1a1a] text-gray-100 border border-white/5"
+                                                : "bg-transparent text-gray-200 pl-0"
                                             }`}
                                     >
                                         <div className="prose prose-invert max-w-none prose-p:leading-7 prose-pre:bg-[#111] prose-pre:border prose-pre:border-white/5 prose-pre:rounded-xl">
@@ -166,9 +166,9 @@ export default function ChatInterface() {
             </div>
 
             {/* Input Area */}
-            <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a] to-transparent z-10">
+            <div className="fixed bottom-0 left-0 right-0 p-6 bg-linear-to-t from-[#0a0a0a] via-[#0a0a0a] to-transparent z-10">
                 <div className="max-w-3xl mx-auto">
-                    {/* Pre-prompts (only show if few messages or explicitly wanted, keeping for now but subtle) */}
+                    {/* Pre-prompts */}
                     {messages.length < 3 && (
                         <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide justify-center mb-2 overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                             {PRE_PROMPTS.map((prompt, i) => (
@@ -186,10 +186,10 @@ export default function ChatInterface() {
                     )}
 
                     {/* Input Pill */}
-                    <div className="relative group">
-                        <div className="absolute -inset-0.5 bg-white/10 rounded-[32px] opacity-0 group-hover:opacity-100 transition duration-500 blur-sm"></div>
-                        <div className="relative flex items-end bg-[#141414] rounded-[32px] border border-white/5 p-2 shadow-2xl">
+                    <div className="relative w-full max-w-3xl mx-auto">
+                        <div className="relative flex items-center bg-[#1a1a1a] rounded-[32px] ring-1 ring-white/10 focus-within:ring-white/20 p-2 shadow-lg shadow-black/20 transition-all duration-200">
                             <button className="p-3 text-gray-500 hover:text-white transition-colors rounded-full hover:bg-white/5">
+                                <ImageIcon className="w-5 h-5" />
                             </button>
 
                             <textarea
@@ -204,21 +204,21 @@ export default function ChatInterface() {
                                 }}
                                 placeholder="Ask anything..."
                                 rows={1}
-                                className="flex-1 bg-transparent border-none outline-none text-gray-100 placeholder-gray-500 px-4 py-3 resize-none max-h-[200px] scrollbar-hide text-[15px]"
+                                className="flex-1 bg-transparent border-none outline-none text-gray-100 placeholder-gray-500 px-4 py-3 resize-none max-h-[200px] scrollbar-hide text-[15px] leading-relaxed"
                             />
 
-                            <div className="flex items-center gap-1 pr-1">
+                            <div className="flex items-center gap-3 pr-1">
                                 <button className="p-2 text-gray-500 hover:text-white transition-colors rounded-full hover:bg-white/5">
                                     <Mic className="w-5 h-5" />
                                 </button>
                                 <motion.button
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
                                     onClick={handleSend}
                                     disabled={!input.trim()}
                                     className={`p-2 rounded-full transition-all duration-200 ${input.trim()
-                                        ? "bg-white text-black shadow-lg shadow-white/10"
-                                        : "bg-[#222] text-gray-600 cursor-not-allowed"
+                                            ? "bg-white text-black shadow-lg shadow-white/10"
+                                            : "bg-[#2a2a2a] text-gray-600 cursor-not-allowed"
                                         }`}
                                 >
                                     <Send className="w-5 h-5 ml-0.5" />
