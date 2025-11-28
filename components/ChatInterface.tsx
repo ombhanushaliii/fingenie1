@@ -238,7 +238,7 @@ export default function ChatInterface() {
                     pollIntervalRef.current = null;
                 }
                 setIsTyping(false);
-            }, 60000);
+            }, 180000);
 
         } catch (error) {
             console.error(error);
