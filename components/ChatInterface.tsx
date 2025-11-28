@@ -9,7 +9,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import {
     Send, Sparkles, User, Bot, Mic, Image as ImageIcon,
-    Plus, Folder, Settings, MessageSquare, ChevronDown, PanelLeftClose, X, LogOut
+    Plus, Folder, Settings, MessageSquare, ChevronDown, PanelLeftClose, X, LogOut, Square
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import UserAvatar from "./UserAvatar";
@@ -74,6 +74,7 @@ export default function ChatInterface() {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const recognitionRef = useRef<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -152,6 +153,14 @@ export default function ChatInterface() {
         }
     };
 
+    const stopGeneration = () => {
+        if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+        }
+        setIsTyping(false);
+    };
+
     const handleSend = async () => {
         if (status === "unauthenticated") {
             setIsSignInModalOpen(true);
@@ -203,7 +212,10 @@ export default function ChatInterface() {
                                 if (prev.some(m => m.content === lastMsg.text && m.role === 'assistant')) {
                                     return prev;
                                 }
-                                clearInterval(pollInterval);
+                                if (pollIntervalRef.current) {
+                                    clearInterval(pollIntervalRef.current);
+                                    pollIntervalRef.current = null;
+                                }
                                 setIsTyping(false);
                                 return [...prev, {
                                     id: Date.now(),
@@ -217,10 +229,14 @@ export default function ChatInterface() {
                     console.error("Polling error", e);
                 }
             }, 2000);
+            pollIntervalRef.current = pollInterval;
 
             // Stop polling after 60 seconds to prevent infinite loops
             setTimeout(() => {
-                clearInterval(pollInterval);
+                if (pollIntervalRef.current) {
+                    clearInterval(pollIntervalRef.current);
+                    pollIntervalRef.current = null;
+                }
                 setIsTyping(false);
             }, 60000);
 
@@ -293,7 +309,27 @@ export default function ChatInterface() {
 
                 {/* Sidebar Footer */}
                 <div className="p-4 border-t border-white/5 min-w-[256px]">
-                    {status === "authenticated" ? (
+                    {status === "loading" ? (
+                        <div className="flex items-center gap-3 px-2 py-2">
+                            <motion.div
+                                animate={{ opacity: [0.5, 1, 0.5] }}
+                                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                                className="w-8 h-8 rounded-full bg-white/10"
+                            />
+                            <div className="flex-1 space-y-2">
+                                <motion.div
+                                    animate={{ opacity: [0.3, 0.6, 0.3] }}
+                                    transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
+                                    className="h-3 w-20 bg-white/10 rounded-md"
+                                />
+                                <motion.div
+                                    animate={{ opacity: [0.3, 0.6, 0.3] }}
+                                    transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
+                                    className="h-2 w-12 bg-white/10 rounded-md"
+                                />
+                            </div>
+                        </div>
+                    ) : status === "authenticated" ? (
                         <div className="relative">
                             <button
                                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -338,7 +374,7 @@ export default function ChatInterface() {
                                             <div className="p-1">
                                                 <button
                                                     onClick={() => signOut()}
-                                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-white/5 rounded-lg transition-colors"
+                                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
                                                 >
                                                     <LogOut className="w-4 h-4" />
                                                     Sign Out
@@ -352,7 +388,7 @@ export default function ChatInterface() {
                     ) : (
                         <button
                             onClick={() => setIsSignInModalOpen(true)}
-                            className="w-full flex items-center justify-center gap-2 bg-white text-black font-medium py-2.5 rounded-lg hover:bg-gray-100 transition-colors"
+                            className="w-full flex items-center justify-center gap-2 bg-gray-200 text-black text-sm font-medium py-2 rounded-lg hover:bg-gray-300 transition-colors cursor-pointer"
                         >
                             Sign In
                         </button>
@@ -401,11 +437,19 @@ export default function ChatInterface() {
                                     transition={{ duration: 0.6, ease: "easeOut" }}
                                     className="space-y-2"
                                 >
-                                    <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-linear-to-b from-white to-white/40 tracking-tight">
-                                        How can I help, {session?.user?.name?.split(' ')[0] || 'User'}?
+                                    <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-linear-to-b from-white to-white/40 tracking-tight pb-2">
+                                        {status === "loading"
+                                            ? "..."
+                                            : status === "unauthenticated"
+                                                ? "Sign in to chat"
+                                                : `How can I help, ${session?.user?.name?.split(' ')[0] || 'User'}?`}
                                     </h1>
                                     <p className="text-gray-400 text-lg">
-                                        Ready to analyze your finances.
+                                        {status === "loading"
+                                            ? "Connecting to FinGenie..."
+                                            : status === "unauthenticated"
+                                                ? "Create an account to start your journey."
+                                                : "Ready to analyze your finances."}
                                     </p>
                                 </motion.div>
                             </div>
@@ -540,18 +584,29 @@ export default function ChatInterface() {
                                     >
                                         <Mic className={`w-5 h-5 ${isListening ? 'animate-pulse' : ''}`} />
                                     </button>
-                                    <motion.button
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        onClick={handleSend}
-                                        disabled={!input.trim() && !selectedImage}
-                                        className={`p-2 rounded-full transition-all duration-200 ${(input.trim() || selectedImage)
-                                            ? "bg-white text-black shadow-lg shadow-white/10"
-                                            : "bg-[#2a2a2a] text-gray-600 cursor-not-allowed"
-                                            }`}
-                                    >
-                                        <Send className="w-5 h-5 ml-0.5" />
-                                    </motion.button>
+                                    {isTyping ? (
+                                        <motion.button
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={stopGeneration}
+                                            className="p-2 rounded-full transition-all duration-200 bg-[#2a2a2a] text-white hover:bg-red-500/20 hover:text-red-400 border border-white/5 hover:border-red-500/30"
+                                        >
+                                            <Square className="w-5 h-5 fill-current" />
+                                        </motion.button>
+                                    ) : (
+                                        <motion.button
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={handleSend}
+                                            disabled={!input.trim() && !selectedImage}
+                                            className={`p-2 rounded-full transition-all duration-200 ${(input.trim() || selectedImage)
+                                                ? "bg-white text-black shadow-lg shadow-white/10"
+                                                : "bg-[#2a2a2a] text-gray-600 cursor-not-allowed"
+                                                }`}
+                                        >
+                                            <Send className="w-5 h-5 ml-0.5" />
+                                        </motion.button>
+                                    )}
                                 </div>
                             </div>
 

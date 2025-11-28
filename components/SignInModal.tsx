@@ -46,7 +46,7 @@ export default function SignInModal({ isOpen, onClose }: SignInModalProps) {
 
                             <button
                                 onClick={() => signIn("google")}
-                                className="w-full flex items-center justify-center gap-3 bg-white text-black font-medium py-3 px-4 rounded-xl hover:bg-gray-100 transition-colors duration-200"
+                                className="w-full flex items-center justify-center gap-3 bg-white text-black font-medium py-3 px-4 rounded-xl hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
                             >
                                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                                     <path
