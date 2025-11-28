@@ -9,10 +9,12 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import {
     Send, Sparkles, User, Bot, Mic, Image as ImageIcon,
-    Plus, Folder, Settings, MessageSquare, ChevronDown, PanelLeftClose, X
+    Plus, Folder, Settings, MessageSquare, ChevronDown, PanelLeftClose, X, LogOut
 } from "lucide-react";
+import { signOut } from "next-auth/react";
 import UserAvatar from "./UserAvatar";
-import TypingIndicator from "./TypingIndicator";
+import SignInModal from "./SignInModal";
+import ThinkingIndicator, { THINKING_PHRASES } from "./ThinkingIndicator";
 import ShootingStars from "@/components/ui/shooting-stars";
 import StarBackground from "@/components/ui/stars-background";
 
@@ -47,25 +49,28 @@ interface Message {
 }
 
 export default function ChatInterface() {
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            id: 1,
-            role: "user",
-            content: "I'm working on the Problem slide for my pitch deck. Can you help me make it more visual?"
-        },
-        {
-            id: 2,
-            role: "assistant",
-            content: "Of course! A strong visual can really make the problem resonate.\n\nHere's a concept you might like:\n\n**Imagine a freelancer at a chaotic desk, overwhelmed by multiple floating tools — invoices, chats, spreadsheets, payment apps — all fighting for attention.**"
-        }
-    ]);
-    const { data: session } = useSession();
+    const [messages, setMessages] = useState<Message[]>([]);
+    const { data: session, status } = useSession();
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isListening, setIsListening] = useState(false);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
+    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const [thinkingPhraseIndex, setThinkingPhraseIndex] = useState(0);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!isTyping) {
+            setThinkingPhraseIndex(0);
+            return;
+        }
+        const interval = setInterval(() => {
+            setThinkingPhraseIndex((prev) => (prev + 1) % THINKING_PHRASES.length);
+        }, 2500);
+        return () => clearInterval(interval);
+    }, [isTyping]);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const recognitionRef = useRef<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -148,6 +153,10 @@ export default function ChatInterface() {
     };
 
     const handleSend = async () => {
+        if (status === "unauthenticated") {
+            setIsSignInModalOpen(true);
+            return;
+        }
         if (!input.trim() && !selectedImage) return;
 
         const userMsg: Message = {
@@ -284,14 +293,70 @@ export default function ChatInterface() {
 
                 {/* Sidebar Footer */}
                 <div className="p-4 border-t border-white/5 min-w-[256px]">
-                    <div className="flex items-center gap-3 px-2 py-2 hover:bg-white/5 rounded-lg cursor-pointer transition-colors">
-                        <UserAvatar />
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">User</p>
-                            <p className="text-xs text-gray-500 truncate">Pro Plan</p>
+                    {status === "authenticated" ? (
+                        <div className="relative">
+                            <button
+                                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                                className="w-full flex items-center gap-3 px-2 py-2 hover:bg-white/5 rounded-lg cursor-pointer transition-colors text-left"
+                            >
+                                <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-800 border border-white/10">
+                                    {session.user?.image ? (
+                                        <img
+                                            src={session.user.image}
+                                            alt={session.user?.name || "User"}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-xs font-medium text-white">
+                                            {session.user?.name?.[0] || "U"}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-white truncate">
+                                        {session.user?.name || "User"}
+                                    </p>
+
+                                </div>
+                                <Settings className="w-4 h-4 text-gray-500" />
+                            </button>
+
+                            {/* User Menu Dropdown */}
+                            <AnimatePresence>
+                                {isUserMenuOpen && (
+                                    <>
+                                        <div
+                                            className="fixed inset-0 z-40"
+                                            onClick={() => setIsUserMenuOpen(false)}
+                                        />
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                            className="absolute bottom-full left-0 w-full mb-2 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl overflow-hidden z-50"
+                                        >
+                                            <div className="p-1">
+                                                <button
+                                                    onClick={() => signOut()}
+                                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-white/5 rounded-lg transition-colors"
+                                                >
+                                                    <LogOut className="w-4 h-4" />
+                                                    Sign Out
+                                                </button>
+                                            </div>
+                                        </motion.div>
+                                    </>
+                                )}
+                            </AnimatePresence>
                         </div>
-                        <Settings className="w-4 h-4 text-gray-500" />
-                    </div>
+                    ) : (
+                        <button
+                            onClick={() => setIsSignInModalOpen(true)}
+                            className="w-full flex items-center justify-center gap-2 bg-white text-black font-medium py-2.5 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                            Sign In
+                        </button>
+                    )}
                 </div>
             </motion.div>
 
@@ -328,84 +393,102 @@ export default function ChatInterface() {
                 {/* Chat Container */}
                 <div className="flex-1 overflow-y-auto scrollbar-hide z-10 relative w-full">
                     <div className="max-w-3xl mx-auto px-4 pt-20 pb-40 min-h-full flex flex-col justify-end">
-                        <AnimatePresence initial={false} mode="popLayout">
-                            {messages.map((msg) => (
+                        {messages.length === 0 ? (
+                            <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6 pb-20">
                                 <motion.div
-                                    key={msg.id}
-                                    initial={{ opacity: 0, y: 20, scale: 0.98 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-                                    className={`flex mb-8 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.6, ease: "easeOut" }}
+                                    className="space-y-2"
                                 >
-                                    <div className={`flex max-w-[85%] gap-4 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
-                                        {/* Avatar */}
-                                        <div className="shrink-0 mt-1">
-                                            {msg.role === "user" ? (
-                                                <div className="w-8 h-8 rounded-full bg-[#1a1a1a] border border-white/5 flex items-center justify-center shadow-sm">
-                                                    <User className="w-4 h-4 text-gray-400" />
-                                                </div>
-                                            ) : (
-                                                <div className="w-8 h-8 rounded-full bg-linear-to-br from-blue-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center shadow-sm">
-                                                    <Bot className="w-5 h-5 text-white" />
-                                                </div>
-                                            )}
-                                        </div>
+                                    <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-linear-to-b from-white to-white/40 tracking-tight">
+                                        How can I help, {session?.user?.name?.split(' ')[0] || 'User'}?
+                                    </h1>
+                                    <p className="text-gray-400 text-lg">
+                                        Ready to analyze your finances.
+                                    </p>
+                                </motion.div>
+                            </div>
+                        ) : (
+                            <AnimatePresence initial={false} mode="popLayout">
+                                {messages.map((msg) => (
+                                    <motion.div
+                                        key={msg.id}
+                                        initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+                                        className={`flex mb-8 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                                    >
+                                        <div className={`flex max-w-[85%] gap-4 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
+                                            {/* Avatar */}
+                                            <div className="shrink-0 mt-1">
+                                                {msg.role === "user" ? (
+                                                    <div className="w-8 h-8 rounded-full bg-[#1a1a1a] border border-white/5 flex items-center justify-center shadow-sm">
+                                                        <User className="w-4 h-4 text-gray-400" />
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-8 h-8 rounded-full bg-linear-to-br from-blue-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center shadow-sm">
+                                                        <Bot className="w-5 h-5 text-white" />
+                                                    </div>
+                                                )}
+                                            </div>
 
-                                        {/* Message Bubble */}
-                                        <div
-                                            className={`px-6 py-4 rounded-3xl shadow-md leading-relaxed text-[15px] backdrop-blur-sm ${msg.role === "user"
-                                                ? "bg-[#1a1a1a]/80 text-gray-100 border border-white/5"
-                                                : "bg-transparent text-gray-200 pl-0"
-                                                }`}
-                                        >
-                                            {msg.image && (
-                                                <div className="mb-4">
-                                                    <img
-                                                        src={msg.image}
-                                                        alt="Attached image"
-                                                        className="max-w-full h-auto rounded-xl border border-white/10"
-                                                    />
+                                            {/* Message Bubble */}
+                                            <div
+                                                className={`px-6 py-4 rounded-3xl shadow-md leading-relaxed text-[15px] backdrop-blur-sm ${msg.role === "user"
+                                                    ? "bg-[#1a1a1a]/80 text-gray-100 border border-white/5"
+                                                    : "bg-transparent text-gray-200 pl-0"
+                                                    }`}
+                                            >
+                                                {msg.image && (
+                                                    <div className="mb-4">
+                                                        <img
+                                                            src={msg.image}
+                                                            alt="Attached image"
+                                                            className="max-w-full h-auto rounded-xl border border-white/10"
+                                                        />
+                                                    </div>
+                                                )}
+                                                <div className="prose prose-invert max-w-none prose-p:leading-7 prose-pre:bg-[#111] prose-pre:border prose-pre:border-white/5 prose-pre:rounded-xl">
+                                                    <ReactMarkdown
+                                                        remarkPlugins={[remarkGfm]}
+                                                        components={{
+                                                            code({ node, inline, className, children, ...props }: { node?: any; inline?: boolean; className?: string; children?: React.ReactNode;[key: string]: any }) {
+                                                                const match = /language-(\w+)/.exec(className || "");
+                                                                return !inline && match ? (
+                                                                    <SyntaxHighlighter
+                                                                        style={vscDarkPlus}
+                                                                        language={match[1]}
+                                                                        PreTag="div"
+                                                                        {...props}
+                                                                    >
+                                                                        {String(children).replace(/\n$/, "")}
+                                                                    </SyntaxHighlighter>
+                                                                ) : (
+                                                                    <code className="bg-white/10 rounded px-1.5 py-0.5 text-blue-200 text-sm font-mono" {...props}>
+                                                                        {children}
+                                                                    </code>
+                                                                );
+                                                            }
+                                                        }}
+                                                    >
+                                                        {msg.content}
+                                                    </ReactMarkdown>
                                                 </div>
-                                            )}
-                                            <div className="prose prose-invert max-w-none prose-p:leading-7 prose-pre:bg-[#111] prose-pre:border prose-pre:border-white/5 prose-pre:rounded-xl">
-                                                <ReactMarkdown
-                                                    remarkPlugins={[remarkGfm]}
-                                                    components={{
-                                                        code({ node, inline, className, children, ...props }: { node?: any; inline?: boolean; className?: string; children?: React.ReactNode;[key: string]: any }) {
-                                                            const match = /language-(\w+)/.exec(className || "");
-                                                            return !inline && match ? (
-                                                                <SyntaxHighlighter
-                                                                    style={vscDarkPlus}
-                                                                    language={match[1]}
-                                                                    PreTag="div"
-                                                                    {...props}
-                                                                >
-                                                                    {String(children).replace(/\n$/, "")}
-                                                                </SyntaxHighlighter>
-                                                            ) : (
-                                                                <code className="bg-white/10 rounded px-1.5 py-0.5 text-blue-200 text-sm font-mono" {...props}>
-                                                                    {children}
-                                                                </code>
-                                                            );
-                                                        }
-                                                    }}
-                                                >
-                                                    {msg.content}
-                                                </ReactMarkdown>
                                             </div>
                                         </div>
-                                    </div>
-                                </motion.div>
-                            ))}
-                        </AnimatePresence>
+                                    </motion.div>
+                                ))}
+                            </AnimatePresence>
+                        )}
 
                         {isTyping && (
                             <motion.div
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="flex justify-start pl-14 mb-8"
+                                className="flex justify-start mb-8"
                             >
-                                <TypingIndicator />
+                                <ThinkingIndicator thinkingPhraseIndex={thinkingPhraseIndex} />
                             </motion.div>
                         )}
                         <div ref={messagesEndRef} />
@@ -538,6 +621,10 @@ export default function ChatInterface() {
                     </div>
                 </div>
             </div>
+            <SignInModal
+                isOpen={isSignInModalOpen}
+                onClose={() => setIsSignInModalOpen(false)}
+            />
         </div>
     );
 }
