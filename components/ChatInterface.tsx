@@ -70,16 +70,54 @@ export default function ChatInterface() {
         setInput("");
         setIsTyping(true);
 
-        // Simulate bot delay
-        setTimeout(() => {
-            const botMsg: Message = {
-                id: Date.now() + 1,
-                role: "assistant",
-                content: "I'm processing your request. This is a simulated response to demonstrate the UI animations and markdown rendering.\n\n```javascript\nconsole.log('Hello Fingenie!');\n```\n\n- Point 1\n- Point 2"
-            };
-            setMessages((prev) => [...prev, botMsg]);
+        try {
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: userMsg.content }),
+            });
+
+            if (!res.ok) throw new Error('Failed to send message');
+
+            // Poll for response
+            const pollInterval = setInterval(async () => {
+                try {
+                    const pollRes = await fetch('/api/chat');
+                    const data = await pollRes.json();
+
+                    if (data.messages && data.messages.length > 0) {
+                        const lastMsg = data.messages[data.messages.length - 1];
+                        if (lastMsg.sender === 'assistant' && lastMsg.timestamp > new Date(userMsg.id).toISOString()) {
+                            setMessages((prev) => {
+                                // Check if we already have this message to avoid duplicates
+                                if (prev.some(m => m.content === lastMsg.text && m.role === 'assistant')) {
+                                    return prev;
+                                }
+                                clearInterval(pollInterval);
+                                setIsTyping(false);
+                                return [...prev, {
+                                    id: Date.now(),
+                                    role: 'assistant',
+                                    content: lastMsg.text
+                                }];
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.error("Polling error", e);
+                }
+            }, 2000);
+
+            // Stop polling after 30 seconds to prevent infinite loops
+            setTimeout(() => {
+                clearInterval(pollInterval);
+                setIsTyping(false);
+            }, 30000);
+
+        } catch (error) {
+            console.error(error);
             setIsTyping(false);
-        }, 2000);
+        }
     };
 
     return (
