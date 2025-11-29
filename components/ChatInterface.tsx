@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -15,6 +16,7 @@ import { signOut } from "next-auth/react";
 import UserAvatar from "./UserAvatar";
 import SignInModal from "./SignInModal";
 import ThinkingIndicator, { THINKING_PHRASES } from "./ThinkingIndicator";
+import TypingTitle from "./TypingTitle";
 import ShootingStars from "@/components/ui/shooting-stars";
 import StarBackground from "@/components/ui/stars-background";
 
@@ -48,7 +50,14 @@ interface Message {
     image?: string; // base64 encoded image
 }
 
-export default function ChatInterface() {
+interface Chat {
+    conversationId: string;
+    title: string;
+    updatedAt: string;
+}
+
+export default function ChatInterface({ initialChatId }: { initialChatId?: string }) {
+    const router = useRouter();
     const [messages, setMessages] = useState<Message[]>([]);
     const { data: session, status } = useSession();
     const [input, setInput] = useState("");
@@ -59,6 +68,22 @@ export default function ChatInterface() {
     const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [thinkingPhraseIndex, setThinkingPhraseIndex] = useState(0);
+
+    // Multi-chat state
+    const [chats, setChats] = useState<Chat[]>([]);
+    const [currentChatId, setCurrentChatId] = useState<string | null>(initialChatId || null);
+    const [isRenaming, setIsRenaming] = useState<string | null>(null); // Store chatId of chat being renamed
+    const [isLoadingChat, setIsLoadingChat] = useState(false);
+
+    // Sync state if prop changes (e.g. navigation)
+    useEffect(() => {
+        if (initialChatId) {
+            setCurrentChatId(initialChatId);
+        } else {
+            setCurrentChatId(null);
+        }
+    }, [initialChatId]);
+
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -83,6 +108,71 @@ export default function ChatInterface() {
     useEffect(() => {
         scrollToBottom();
     }, [messages, isTyping]);
+    // Fetch chats on load
+    useEffect(() => {
+        const fetchChats = async () => {
+            if (status === "authenticated" && session?.user?.email) {
+                try {
+                    const res = await fetch(`/api/chat?userId=${encodeURIComponent(session.user.email)}`);
+                    const data = await res.json();
+                    if (data.chats) {
+                        setChats(data.chats.map((c: any) => ({
+                            conversationId: c.chatId || c._id, // Map backend chatId to frontend conversationId, fallback to _id for legacy
+                            title: c.title,
+                            updatedAt: c.updatedAt
+                        })));
+                    }
+                } catch (error) {
+                    console.error("Failed to fetch chats:", error);
+                }
+            }
+        };
+        fetchChats();
+    }, [status, session?.user?.email]);
+
+    const isCreatingNewChatRef = useRef(false);
+
+    // Fetch messages when currentChatId changes
+    useEffect(() => {
+        const fetchMessages = async () => {
+            if (!currentChatId) {
+                setMessages([]);
+                return;
+            }
+
+            // Skip fetch if we just created this chat (state is already up to date)
+            if (isCreatingNewChatRef.current) {
+                isCreatingNewChatRef.current = false;
+                setIsLoadingChat(false);
+                return;
+            }
+
+            setIsLoadingChat(true);
+            try {
+                const res = await fetch(`/api/chat?chatId=${currentChatId}&userId=${encodeURIComponent(session?.user?.email || '')}`);
+                const data = await res.json();
+                if (data.messages) {
+                    setMessages(data.messages.map((msg: any) => ({
+                        id: msg.timestamp ? new Date(msg.timestamp).getTime() : Date.now(),
+                        role: msg.sender === 'user' ? 'user' : 'assistant',
+                        content: msg.text,
+                        image: msg.image
+                    })));
+                } else {
+                    setMessages([]);
+                }
+            } catch (error) {
+                console.error("Failed to fetch messages:", error);
+                setMessages([]);
+            } finally {
+                setIsLoadingChat(false);
+            }
+        };
+
+        if (session?.user?.email) {
+            fetchMessages();
+        }
+    }, [currentChatId, session?.user?.email]);
 
     useEffect(() => {
         if (textareaRef.current) {
@@ -189,23 +279,51 @@ export default function ChatInterface() {
                 body: JSON.stringify({
                     message: userMsg.content,
                     image: userMsg.image,
-                    userId: session?.user?.email // Send explicit userId as backup
+                    userId: session?.user?.email, // Send explicit userId as backup
+                    chatId: currentChatId // Pass current chatId
                 }),
             });
 
             if (!res.ok) throw new Error('Failed to send message');
 
+            const data = await res.json();
+
+            // If this was a new chat
+            if (data.chatId && data.chatId !== currentChatId) {
+                const newChatId = data.chatId;
+                const newTitle = data.title || "New Chat";
+
+                isCreatingNewChatRef.current = true; // Prevent useEffect from wiping state
+                setCurrentChatId(newChatId);
+
+                // Add new chat to list
+                setChats(prev => {
+                    const newChat: Chat = {
+                        conversationId: newChatId,
+                        title: newTitle,
+                        updatedAt: new Date().toISOString()
+                    };
+                    return [newChat, ...prev];
+                });
+
+                // Trigger renaming animation if we have a title (though title might come later from AI)
+                if (data.title) {
+                    setIsRenaming(newChatId);
+                }
+            }
             // Poll for response
             const pollInterval = setInterval(async () => {
                 try {
                     const pollUrl = session?.user?.email
-                        ? `/api/chat?userId=${encodeURIComponent(session.user.email)}`
-                        : '/api/chat';
-                    const pollRes = await fetch(pollUrl);
-                    const data = await pollRes.json();
+                        ? `/api/chat?userId=${encodeURIComponent(session.user.email)}&chatId=${data.chatId || currentChatId}`
+                        : `/api/chat?chatId=${data.chatId || currentChatId}`;
 
-                    if (data.messages && data.messages.length > 0) {
-                        const lastMsg = data.messages[data.messages.length - 1];
+                    console.log(`[Polling] Fetching from: ${pollUrl}`);
+                    const pollRes = await fetch(pollUrl);
+                    const pollData = await pollRes.json();
+
+                    if (pollData.messages && pollData.messages.length > 0) {
+                        const lastMsg = pollData.messages[pollData.messages.length - 1];
                         if (lastMsg.sender === 'assistant' && lastMsg.timestamp > new Date(userMsg.id).toISOString()) {
                             setMessages((prev) => {
                                 // Check if we already have this message to avoid duplicates
@@ -291,22 +409,37 @@ export default function ChatInterface() {
                     </button>
                 </div>
 
-                {/* Workspace List */}
+                {/* Chat List Container */}
                 <div className="flex-1 overflow-y-auto px-3 space-y-1 min-w-[256px]">
-                    <div className="px-2 py-1.5 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Workspace
-                    </div>
-                    {["New Project", "Pricing Section", "Design Guidelines", "Design Brief", "Marketing"].map((item, i) => (
+                    {chats.map((chat) => (
                         <button
-                            key={i}
-                            className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-white/5 rounded-md transition-colors group"
+                            key={chat.conversationId}
+                            onClick={() => {
+                                if (currentChatId !== chat.conversationId) {
+                                    router.push(`/chat/${chat.conversationId}`);
+                                    if (window.innerWidth < 768) setIsSidebarOpen(false);
+                                }
+                            }}
+                            className={`w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors group ${currentChatId === chat.conversationId
+                                ? "bg-white/10 text-white"
+                                : "text-gray-400 hover:text-white hover:bg-white/5"
+                                }`}
                         >
-                            <Folder className="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition-colors" />
-                            <span>{item}</span>
+                            <MessageSquare className={`w-4 h-4 ${currentChatId === chat.conversationId ? "text-blue-400" : "text-gray-600 group-hover:text-gray-400"
+                                } transition-colors`} />
+                            {isRenaming === chat.conversationId ? (
+                                <TypingTitle
+                                    title={chat.title}
+                                    isTyping={true}
+                                    startText="New Chat"
+                                    onComplete={() => setIsRenaming(null)}
+                                />
+                            ) : (
+                                <span className="truncate text-left">{chat.title}</span>
+                            )}
                         </button>
                     ))}
                 </div>
-
                 {/* Sidebar Footer */}
                 <div className="p-4 border-t border-white/5 min-w-[256px]">
                     {status === "loading" ? (

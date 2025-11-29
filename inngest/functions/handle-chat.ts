@@ -12,16 +12,18 @@ export const handleChat = inngest.createFunction(
     { id: 'handle-chat-message' },
     { event: 'app/chat.message.received' },
     async ({ event, step }) => {
-        const { userId, messageId, text } = event.data;
+        const { userId, messageId, text, chatId } = event.data;
 
         await dbConnect();
 
         // Step 1: Load context
         const context = await step.run('load-context', async () => {
             const user = await User.findOne({ userId });
-            const conversation = await Conversation.findOne({ userId });
+            const conversation = await Conversation.findOne({ chatId, userId });
             return { user, conversation };
         });
+
+        // ... (Step 2 and 3 are unchanged)
 
         // Step 2: Route intent using Gemini
 
@@ -114,7 +116,7 @@ Return JSON:
         // Step 5: Store response in conversation
         await step.run('store-response', async () => {
             await Conversation.updateOne(
-                { userId },
+                { chatId, userId },
                 {
                     $push: {
                         messages: {
@@ -125,8 +127,7 @@ Return JSON:
                             timestamp: new Date(),
                         },
                     },
-                },
-                { upsert: true }
+                }
             );
         });
 
