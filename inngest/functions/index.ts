@@ -5,3 +5,5 @@ export { retirementAgent } from './retirement-agent';
 export { schemeAgent } from './scheme-agent';
 export { transactionAgent } from './transaction-agent';
 export { analysisAgent } from './analysis-agent';
+export { goalAgent } from './goal-agent';
+

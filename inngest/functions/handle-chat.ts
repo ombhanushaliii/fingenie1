@@ -7,6 +7,7 @@ import { retirementAgent } from './retirement-agent';
 import { schemeAgent } from './scheme-agent';
 import { transactionAgent } from './transaction-agent';
 import { analysisAgent } from './analysis-agent';
+import { goalAgent } from './goal-agent';
 
 export const handleChat = inngest.createFunction(
     { id: 'handle-chat-message' },
@@ -42,6 +43,7 @@ Available agents:
 - government_schemes: Government schemes, subsidies
 - transaction_tracking: Logging expenses, income, balance updates
 - analysis: Financial analysis, investment strategies
+- goal_setting: Setting financial goals
 - general_qa: Financial literacy, explanations
 
 Return JSON:
@@ -90,6 +92,12 @@ Return JSON:
                         function: analysisAgent,
                         data: { message: text, profile },
                     });
+                } else if (agent === 'goal_setting') {
+                    agentResults.goal = await step.invoke('call-goal-agent', {
+                        function: goalAgent,
+                        data: { message: text, profile },
+                    });
+
                 } else if (agent === 'general_qa') {
                     // For general QA, we can just use the Gemini chat directly or a specific agent
                     // For now, we'll let the compose-response step handle it with the context

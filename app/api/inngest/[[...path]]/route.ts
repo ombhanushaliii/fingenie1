@@ -11,7 +11,8 @@ import {
     retirementAgent,
     schemeAgent,
     transactionAgent,
-    analysisAgent
+    analysisAgent,
+    goalAgent
 } from '@/inngest/functions';
 
 const functions: any[] = [
@@ -21,7 +22,8 @@ const functions: any[] = [
     retirementAgent,
     schemeAgent,
     transactionAgent,
-    analysisAgent
+    analysisAgent,
+    goalAgent
 ];
 
 export const { GET, POST, PUT } = serve({
