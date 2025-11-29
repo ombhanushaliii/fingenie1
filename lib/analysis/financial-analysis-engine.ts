@@ -125,7 +125,7 @@ import {
     calculateInsuranceNeeds,
     calculateRetirementCorpus,
     analyzeSavingsRate
-} from './analysis/financial-math';
+} from './financial-math';
 import { updateFinancialProfile } from './financial-profile-helpers';
 
 /**

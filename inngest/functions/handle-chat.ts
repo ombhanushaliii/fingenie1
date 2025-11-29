@@ -6,6 +6,7 @@ import { investmentAgent } from './investment-agent';
 import { retirementAgent } from './retirement-agent';
 import { schemeAgent } from './scheme-agent';
 import { transactionAgent } from './transaction-agent';
+import { analysisAgent } from './analysis-agent';
 
 export const handleChat = inngest.createFunction(
     { id: 'handle-chat-message' },
@@ -40,6 +41,7 @@ Available agents:
 - retirement_pension: Retirement planning, pension schemes
 - government_schemes: Government schemes, subsidies
 - transaction_tracking: Logging expenses, income, balance updates
+- analysis: Financial analysis, investment strategies
 - general_qa: Financial literacy, explanations
 
 Return JSON:
@@ -81,6 +83,11 @@ Return JSON:
                 } else if (agent === 'transaction_tracking') {
                     agentResults.transaction = await step.invoke('call-transaction-agent', {
                         function: transactionAgent,
+                        data: { message: text, profile },
+                    });
+                } else if (agent === 'analysis') {
+                    agentResults.analysis = await step.invoke('call-analysis-agent', {
+                        function: analysisAgent,
                         data: { message: text, profile },
                     });
                 } else if (agent === 'general_qa') {
