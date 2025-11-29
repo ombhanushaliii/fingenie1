@@ -71,4 +71,4 @@ export function getAvailableAnalyses(profile: any, user: any, transactions: any[
 }
 
 // Re-export existing functions
-export { detectMissingFields, calculateProfileCompleteness, prioritizeMissingFields } from './analysis/profile-completion-helpers';
+export { detectMissingFields, calculateProfileCompleteness, prioritizeMissingFields } from './profile-completion-helpers';
