@@ -74,7 +74,9 @@ const TransactionSchema = new Schema<ITransaction>(
 
 // Conversation Schema
 export interface IConversation extends Document {
+    chatId: string;
     userId: string;
+    title: string;
     messages: Array<{
         messageId: string;
         sender: 'user' | 'assistant';
@@ -86,7 +88,9 @@ export interface IConversation extends Document {
 
 const ConversationSchema = new Schema<IConversation>(
     {
-        userId: { type: String, required: true, unique: true, index: true },
+        chatId: { type: String, required: true, unique: true, index: true },
+        userId: { type: String, required: true, index: true },
+        title: { type: String, default: 'New Chat' },
         messages: [
             {
                 messageId: String,
