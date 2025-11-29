@@ -1,4 +1,4 @@
-import { IFinancialProfile } from './schemas';
+import { IFinancialProfile } from '../schemas';
 
 /**
  * Detect missing critical fields in financial profile

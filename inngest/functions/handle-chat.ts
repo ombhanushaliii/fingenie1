@@ -2,7 +2,6 @@ import { inngest } from '@/lib/inngest';
 import { geminiStructuredOutput, geminiChat } from '@/lib/gemini';
 import dbConnect from '@/lib/db';
 import { Conversation, User } from '@/lib/schemas';
-import { taxAgent } from './tax-agent';
 import { investmentAgent } from './investment-agent';
 import { retirementAgent } from './retirement-agent';
 import { schemeAgent } from './scheme-agent';
@@ -36,7 +35,6 @@ User Context: ${JSON.stringify(context)}
 
 Available agents:
 - investment_planning: Asset allocation, investment strategies
-- tax_itr: Income tax, ITR filing, deductions
 - retirement_pension: Retirement planning, pension schemes
 - government_schemes: Government schemes, subsidies
 - transaction_tracking: Logging expenses, income, balance updates
@@ -62,12 +60,8 @@ Return JSON:
 
         if (routing.agents && routing.agents.length > 0) {
             for (const agent of routing.agents) {
-                if (agent === 'tax_itr') {
-                    agentResults.tax = await step.invoke('call-tax-agent', {
-                        function: taxAgent,
-                        data: { message: text, profile },
-                    });
-                } else if (agent === 'investment_planning') {
+                
+                if (agent === 'investment_planning') {
                     agentResults.investment = await step.invoke('call-investment-agent', {
                         function: investmentAgent,
                         data: { message: text, profile },
