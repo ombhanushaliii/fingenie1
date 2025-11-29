@@ -7,7 +7,6 @@ export const dynamic = 'force-dynamic';
 import {
     handleChat,
     processTransaction,
-    taxAgent,
     investmentAgent,
     retirementAgent,
     schemeAgent,
@@ -17,7 +16,6 @@ import {
 const functions: any[] = [
     handleChat,
     processTransaction,
-    taxAgent,
     investmentAgent,
     retirementAgent,
     schemeAgent,
