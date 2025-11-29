@@ -8,7 +8,12 @@ export async function geminiChat(
 ) {
     const modelInstance = genAI.getGenerativeModel({ model });
     const result = await modelInstance.generateContent(prompt);
-    return result.response.text();
+    let text = result.response.text();
+
+    // Remove markdown code blocks if present
+    text = text.replace(/```markdown\n?/g, '').replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    return text;
 }
 
 export async function geminiStructuredOutput(
@@ -22,17 +27,27 @@ export async function geminiStructuredOutput(
     });
 
     const result = await modelInstance.generateContent(prompt);
-    const text = result.response.text();
+    let text = result.response.text();
 
-    // Parse JSON if needed
+    // Remove markdown code blocks
+    text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    // Parse JSON
     try {
-        // Attempt to find JSON block if wrapped in markdown code blocks
-        const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/```\n([\s\S]*?)\n```/);
-        if (jsonMatch) {
-            return JSON.parse(jsonMatch[1]);
-        }
         return JSON.parse(text);
-    } catch {
+    } catch (e) {
+        console.log('⚠️ JSON parse error, trying to extract...');
+
+        // Try to find JSON object in the text
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            try {
+                return JSON.parse(jsonMatch[0]);
+            } catch (e2) {
+                console.log('❌ Extraction failed, returning text');
+            }
+        }
+
         return text;
     }
 }

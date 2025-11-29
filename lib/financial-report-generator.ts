@@ -2,15 +2,15 @@
  * Generate comprehensive financial report with clean formatting
  */
 export function generateFinancialReport(params: {
-    text: string;
-    analysis: any;
-    agentResults: any;
-    profileGaps: any;
+  text: string;
+  analysis: any;
+  agentResults: any;
+  profileGaps: any;
 }): string {
-    const { text, analysis, agentResults, profileGaps } = params;
-    const analysisData = analysis as any;
+  const { text, analysis, agentResults, profileGaps } = params;
+  const analysisData = analysis as any;
 
-    return `
+  return `
 You are a professional financial advisor creating a comprehensive financial report. Generate a detailed, well-structured report based on the analysis below.
 
 USER QUERY: "${text}"
@@ -200,25 +200,11 @@ Based on your financial profile, here are your Top 5 Priority Actions:
 
 ---
 
-${profileGaps.hasMissingFields ? `
-## Complete Your Financial Profile (${profileGaps.completeness.score}% Complete)
-
-To provide you with more personalized advice, I need a bit more information:
-
-${profileGaps.priorityQuestions.map((q: string, i: number) => `${i + 1}. ${q}`).join('\n')}
-
-Why this matters: A complete profile helps me provide accurate tax calculations, emergency fund recommendations, insurance gap analysis, and retirement planning tailored specifically to you.
-
-You can answer these questions in our next conversation, or ignore them if you prefer.
-
----
-` : `
 ## Profile Completeness: ${profileGaps.completeness.score}%
 
-Great! Your financial profile is ${profileGaps.completeness.score >= 80 ? 'comprehensive' : 'coming along well'}. ${profileGaps.completeness.score < 100 ? 'Share more financial details in future chats for even more personalized advice.' : 'All key information captured!'}
+${profileGaps.completeness.score >= 80 ? 'Your financial profile is comprehensive!' : 'Share more financial details in future chats for even more personalized advice.'}
 
 ---
-`}
 
 ${agentResults.tax || agentResults.investment || agentResults.retirement || agentResults.schemes ? `
 ## Detailed Expert Advice

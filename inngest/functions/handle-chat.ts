@@ -1,21 +1,11 @@
 import { inngest } from '@/lib/inngest';
 import { geminiStructuredOutput, geminiChat } from '@/lib/gemini';
 import dbConnect from '@/lib/db';
-import { Conversation, User, FinancialProfile, Transaction } from '@/lib/schemas';
+import { Conversation } from '@/lib/schemas';
 import { taxAgent } from './tax-agent';
 import { investmentAgent } from './investment-agent';
 import { retirementAgent } from './retirement-agent';
 import { schemeAgent } from './scheme-agent';
-import { transactionAgent } from './transaction-agent';
-import {
-    getOrCreateFinancialProfile,
-    updateFinancialProfile,
-    updateAssets,
-    addLiability,
-    updateTaxDetails,
-    getCriticalMissingFields,
-    calculateProfileCompleteness
-} from '@/lib/financial-profile-helpers';
 
 export const handleChat = inngest.createFunction(
     { id: 'handle-chat-message' },
@@ -25,135 +15,199 @@ export const handleChat = inngest.createFunction(
 
         await dbConnect();
 
-        // Step 1: Load context
-        const context = await step.run('load-context', async () => {
-            const user = await User.findOne({ userId });
-            const conversation = await Conversation.findOne({ userId });
-            const financialProfile = await getOrCreateFinancialProfile(userId);
-            const sixMonthsAgo = new Date();
-            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-            const transactions = await Transaction.find({
-                userId,
-                date: { $gte: sixMonthsAgo }
-            });
+        // Step 1: Extract financial data from user message
+        const extractedData = await step.run('extract-data', async () => {
+            const prompt = `Extract Indian financial data from: "${text}"
 
-            return { user, conversation, financialProfile, transactions };
+CURRENCY CONVERSION:
+₹40k = 40000, ₹5L = 500000, ₹1Cr = 10000000
+8 LPA = monthly 66666 (800000/12)
+
+EXAMPLES:
+"I'm 28, freelancer, earn ₹80k monthly, spend ₹40k, have ₹1L emergency fund, ₹5L term insurance"
+→ {age: 28, employmentType: "gig", monthlyIncome: 80000, monthlyExpenses: 40000, assets: {emergencyFund: 100000}, insurance: {lifeInsuranceCover: 500000}}
+
+Extract and return JSON:
+{
+  "age": number|null,
+  "monthlyIncome": number|null,
+  "monthlyExpenses": number|null,
+  "employmentType": "salaried"|"gig"|"business"|"student"|"retired"|null,
+  "assets": {
+    "emergencyFund": number|null,
+    "fixedDeposits": number|null,
+    "mutualFunds": number|null,
+    "stocks": number|null
+  },
+  "liabilities": null,
+  "insurance": {
+    "lifeInsuranceCover": number|null,
+    "healthInsuranceCover": number|null
+  },
+  "taxDetails": {
+    "regime": null,
+    "pan": null
+  }
+}`;
+
+            const extracted = await geminiStructuredOutput(prompt, 'Extract financial data. Return only valid JSON.');
+            console.log('📊 [EXTRACT]:', JSON.stringify(extracted, null, 2));
+            return typeof extracted === 'string' ? {} : extracted;
         });
 
-        // Step 2: Extract and store financial data
-        await step.run('extract-and-store', async () => {
-            const prompt = `Extract financial data from: "${text}"
-Return JSON with null for missing fields:
-{"age": number|null, "monthlyExpenses": number|null, "employmentType": "salaried"|"gig"|"business"|"student"|"retired"|null, "assets": {"emergencyFund": number|null, "fixedDeposits": number|null, "mutualFunds": number|null, "stocks": number|null}, "insurance": {"lifeInsuranceCover": number|null, "healthInsuranceCover": number|null}, "taxDetails": {"regime": "new"|"old"|null, "pan": string|null}, "newLiability": {"type": string, "outstandingAmount": number, "interestRate": number, "monthlyEmi": number}|null}`;
-
-            const extracted = await geminiStructuredOutput(prompt, 'Extract data');
-            if (typeof extracted === 'string') return;
-
-            // Store extracted data
-            const updates: any = {};
-            if (extracted.employmentType) updates.employmentType = extracted.employmentType;
-            if (extracted.monthlyExpenses) updates.monthlyBurnRate = extracted.monthlyExpenses;
-            if (Object.keys(updates).length > 0) await updateFinancialProfile(userId, updates);
-
-            if (extracted.age && context.user) {
-                await User.updateOne({ userId }, { $set: { 'profile.age': extracted.age } });
-            }
-
-            if (extracted.taxDetails) {
-                const taxUpdates: any = {};
-                if (extracted.taxDetails.regime) taxUpdates.regime = extracted.taxDetails.regime;
-                if (extracted.taxDetails.pan) taxUpdates.pan = extracted.taxDetails.pan;
-                if (Object.keys(taxUpdates).length > 0) await updateTaxDetails(userId, taxUpdates);
-            }
-
-            if (extracted.assets) {
-                const assetUpdates: any = {};
-                for (const [key, val] of Object.entries(extracted.assets)) {
-                    if (val !== null) assetUpdates[key] = val;
-                }
-                if (Object.keys(assetUpdates).length > 0) await updateAssets(userId, assetUpdates);
-            }
-
-            if (extracted.newLiability) await addLiability(userId, extracted.newLiability);
-
-            if (extracted.insurance) {
-                const insuranceUpdates: any = {};
-                if (extracted.insurance.lifeInsuranceCover !== null) insuranceUpdates['insurance.lifeInsuranceCover'] = extracted.insurance.lifeInsuranceCover;
-                if (extracted.insurance.healthInsuranceCover !== null) insuranceUpdates['insurance.healthInsuranceCover'] = extracted.insurance.healthInsuranceCover;
-                if (Object.keys(insuranceUpdates).length > 0) await updateFinancialProfile(userId, insuranceUpdates);
-            }
-
-            const reloadedProfile = await FinancialProfile.findOne({ userId });
-            if (reloadedProfile) context.financialProfile = reloadedProfile as any;
+        // Step 2: Run financial analysis on extracted data
+        const analysis = await step.run('analyze-finances', async () => {
+            const { analyzeFinancialData } = await import('@/lib/financial-analysis-engine');
+            return analyzeFinancialData(extractedData);
         });
 
-        // Step 3: Check for critical missing fields
-        const criticalCheck = await step.run('check-critical-fields', async () => {
-            return getCriticalMissingFields(context.financialProfile, context.user);
-        });
-
-        // If critical data missing, ask for it BEFORE analysis
-        if (criticalCheck.hasCriticalGaps) {
-            const response = await step.run('request-critical-data', async () => {
-                return await geminiChat(`You are a financial advisor. User asked: "${text}"
-
-I need critical information to provide accurate analysis:
-${criticalCheck.criticalQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
-
-Respond friendly: acknowledge their question, explain why you need this data, ask for it. Be concise.`);
-            });
-
-            await step.run('store-response', async () => {
-                await Conversation.updateOne({ userId }, {
-                    $push: { messages: { messageId: `${messageId}-response`, sender: 'assistant', text: response, agentsInvolved: [], timestamp: new Date() } }
-                }, { upsert: true });
-            });
-
-            return { userId, messageId, status: 'awaiting_critical_data', missingFields: criticalCheck.missingCritical };
-        }
-
-        // Step 4: Run analysis (only if we have critical data)
-        const analysis = await step.run('run-analysis', async () => {
-            const { runFinancialAnalysis } = await import('@/lib/financial-analysis-engine');
-            return await runFinancialAnalysis({ userId, profile: context.financialProfile, user: context.user, transactions: context.transactions });
-        });
-
-        // Step 5: Route to agents
+        // Step 3: Route to appropriate agents based on query intent
         const routing = await step.run('route-intent', async () => {
-            return await geminiStructuredOutput(`Route this query to agents: "${text}". Available: investment_planning, tax_itr, retirement_pension, government_schemes, transaction_tracking, general_qa. Return JSON: {"intent": "string", "agents": ["array"], "confidence": 0.0-1.0}`, 'Router');
+            const routePrompt = `Analyze this financial query and determine which specialized agents should handle it: "${text}"
+
+Available agents:
+- tax_itr: Tax planning, ITR filing, regime comparison, deductions
+- investment_planning: Mutual funds, stocks, asset allocation, SIPs
+- retirement_pension: NPS, retirement corpus, pension planning
+- government_schemes: PPF, SSY, PMJJBY, subsidies, schemes
+- general_qa: General financial advice, education
+
+Return JSON:
+{
+  "intent": "brief description",
+  "agents": ["array of relevant agent names"],
+  "confidence": 0.0-1.0
+}`;
+
+            const result = await geminiStructuredOutput(routePrompt, 'Route to agents');
+            console.log('🔀 [ROUTE]:', result);
+            return typeof result === 'string' ? { agents: [], confidence: 0 } : result;
         });
 
-        // Step 6: Call agents
+        // Step 4: Call specialized agents
         const agentResults: any = {};
-        const profile = context.user ? { ...context.user.profile, userId, financialProfile: context.financialProfile, analysis } : { userId, balance: 0, financialProfile: context.financialProfile, analysis };
+        const profile = {
+            userId,
+            age: extractedData.age,
+            monthlyIncome: extractedData.monthlyIncome,
+            monthlyExpenses: extractedData.monthlyExpenses,
+            employmentType: extractedData.employmentType,
+            assets: extractedData.assets,
+            liabilities: extractedData.liabilities,
+            insurance: extractedData.insurance,
+            analysis
+        };
 
         if (routing.agents?.length > 0) {
+            console.log('🤖 [AGENTS] Calling:', routing.agents);
+
             for (const agent of routing.agents) {
-                if (agent === 'tax_itr') agentResults.tax = await step.invoke('call-tax-agent', { function: taxAgent, data: { message: text, profile } });
-                else if (agent === 'investment_planning') agentResults.investment = await step.invoke('call-investment-agent', { function: investmentAgent, data: { message: text, profile } });
-                else if (agent === 'retirement_pension') agentResults.retirement = await step.invoke('call-retirement-agent', { function: retirementAgent, data: { message: text, profile } });
-                else if (agent === 'government_schemes') agentResults.schemes = await step.invoke('call-scheme-agent', { function: schemeAgent, data: { message: text, profile } });
-                else if (agent === 'transaction_tracking') agentResults.transaction = await step.invoke('call-transaction-agent', { function: transactionAgent, data: { message: text, profile } });
+                try {
+                    if (agent === 'tax_itr') {
+                        agentResults.tax = await step.invoke('call-tax-agent', {
+                            function: taxAgent,
+                            data: { message: text, profile }
+                        });
+                    } else if (agent === 'investment_planning') {
+                        agentResults.investment = await step.invoke('call-investment-agent', {
+                            function: investmentAgent,
+                            data: { message: text, profile }
+                        });
+                    } else if (agent === 'retirement_pension') {
+                        agentResults.retirement = await step.invoke('call-retirement-agent', {
+                            function: retirementAgent,
+                            data: { message: text, profile }
+                        });
+                    } else if (agent === 'government_schemes') {
+                        agentResults.schemes = await step.invoke('call-scheme-agent', {
+                            function: schemeAgent,
+                            data: { message: text, profile }
+                        });
+                    }
+                } catch (error) {
+                    console.log(`⚠️ [AGENT] ${agent} failed:`, error);
+                }
             }
         }
 
-        // Step 7: Calculate completeness
-        const completeness = calculateProfileCompleteness(context.financialProfile, context.user);
+        // Step 5: Generate comprehensive financial report
+        const response = await step.run('generate-report', async () => {
+            const hasAgentResults = Object.keys(agentResults).length > 0;
 
-        // Step 8: Generate report
-        const response = await step.run('compose-response', async () => {
-            const { generateFinancialReport } = await import('@/lib/financial-report-generator');
-            const prompt = generateFinancialReport({ text, analysis, agentResults, profileGaps: { completeness, hasMissingFields: completeness.score < 100, priorityQuestions: [] } });
-            return await geminiChat(prompt);
+            return await geminiChat(`You are a professional Indian financial advisor. Create a comprehensive financial report.
+
+USER MESSAGE: "${text}"
+
+EXTRACTED DATA:
+${JSON.stringify(extractedData, null, 2)}
+
+FINANCIAL ANALYSIS:
+${JSON.stringify(analysis, null, 2)}
+
+${hasAgentResults ? `
+SPECIALIZED AGENT INSIGHTS:
+${JSON.stringify(agentResults, null, 2)}
+` : ''}
+
+Create a detailed, well-structured report with these sections:
+
+# Personal Finance Report
+
+## Executive Summary
+(2-3 sentence overview of financial health)
+
+## Income & Savings Analysis
+- Monthly income: Rs.${analysis.income.monthly.toLocaleString('en-IN')}
+- Monthly expenses: Rs.${analysis.expenses.monthly.toLocaleString('en-IN')}
+- Savings rate: ${analysis.savings.rate.toFixed(1)}% (${analysis.savings.status})
+
+## Emergency Fund Status
+- Current: Rs.${analysis.emergencyFund.current.toLocaleString('en-IN')}
+- Recommended: Rs.${analysis.emergencyFund.recommended.toLocaleString('en-IN')}
+- Coverage: ${analysis.emergencyFund.months.toFixed(1)} months
+
+## Insurance Coverage
+- Life Insurance Gap: Rs.${analysis.insurance.life.gap.toLocaleString('en-IN')}
+- Health Insurance Gap: Rs.${analysis.insurance.health.gap.toLocaleString('en-IN')}
+
+${hasAgentResults ? `
+## Specialized Recommendations
+
+${agentResults.tax ? `### Tax Optimization\n${agentResults.tax}\n` : ''}
+${agentResults.investment ? `### Investment Strategy\n${agentResults.investment}\n` : ''}
+${agentResults.retirement ? `### Retirement Planning\n${agentResults.retirement}\n` : ''}
+${agentResults.schemes ? `### Government Schemes\n${agentResults.schemes}\n` : ''}
+` : ''}
+
+## Top 5 Priority Actions
+1. ${analysis.emergencyFund.status === 'insufficient' ? `Build emergency fund - need Rs.${analysis.emergencyFund.gap.toLocaleString('en-IN')} more` : 'Emergency fund adequate ✓'}
+2. ${analysis.insurance.life.gap > 0 ? `Get term insurance for Rs.${analysis.insurance.life.gap.toLocaleString('en-IN')}` : 'Life insurance adequate ✓'}
+3. ${analysis.savings.rate < 20 ? `Increase savings rate to 20%+` : 'Maintain excellent savings discipline ✓'}
+4. ${analysis.debt.status === 'high' ? `Reduce debt burden - current DTI ${analysis.debt.debtToIncomeRatio.toFixed(1)}%` : 'Debt is manageable'}
+5. ${analysis.retirement.monthlySipNeeded > 0 ? `Start retirement SIP of Rs.${analysis.retirement.monthlySipNeeded.toLocaleString('en-IN')}/month` : 'Review retirement planning'}
+
+Use Indian Rupee notation (Rs.). Be specific, actionable, data-driven.`);
         });
 
-        // Step 9: Store response
+        // Step 6: Store conversation
         await step.run('store-response', async () => {
-            await Conversation.updateOne({ userId }, {
-                $push: { messages: { messageId: `${messageId}-response`, sender: 'assistant', text: response, agentsInvolved: routing.agents || [], timestamp: new Date() } }
-            }, { upsert: true });
+            await Conversation.updateOne(
+                { userId },
+                {
+                    $push: {
+                        messages: {
+                            messageId: `${messageId}-response`,
+                            sender: 'assistant',
+                            text: response,
+                            agentsInvolved: routing.agents || [],
+                            timestamp: new Date()
+                        }
+                    }
+                },
+                { upsert: true }
+            );
         });
 
-        return { userId, messageId, status: 'completed', analysis };
+        return { userId, messageId, status: 'completed', extractedData, analysis, agentsUsed: routing.agents };
     }
 );
