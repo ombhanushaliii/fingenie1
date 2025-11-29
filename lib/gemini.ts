@@ -52,3 +52,10 @@ export async function geminiStructuredOutput(
         return text;
     }
 }
+
+export async function generateChatTitle(firstMessage: string) {
+    const prompt = `Generate a very short, concise title (max 4-5 words) for a chat that starts with this message: "${firstMessage}". Do not use quotes.`;
+    const modelInstance = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const result = await modelInstance.generateContent(prompt);
+    return result.response.text().trim();
+}

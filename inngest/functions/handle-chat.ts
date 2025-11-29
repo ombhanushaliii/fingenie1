@@ -62,7 +62,7 @@ Return JSON:
 
         if (routing.agents && routing.agents.length > 0) {
             for (const agent of routing.agents) {
-                
+
                 if (agent === 'investment_planning') {
                     agentResults.investment = await step.invoke('call-investment-agent', {
                         function: investmentAgent,
@@ -123,6 +123,26 @@ Return JSON:
                     },
                 }
             );
+        });
+
+        // Step 6: Generate Title if needed (Parallel-ish)
+        // We check if the title is "New Chat" or missing, and if so, generate a new one.
+        // Note: In a real parallel setup, we might run this alongside 'compose-response' using Promise.all if we weren't using step.run sequentially.
+        // But Inngest steps are sequential. To make it "feel" parallel to the user, the UI is already polling.
+        // We can just run this after storing the response, or even before.
+
+        await step.run('generate-title', async () => {
+            const conversation = await Conversation.findOne({ chatId, userId });
+            if (conversation && (conversation.title === 'New Chat' || !conversation.title)) {
+                const { generateChatTitle } = await import('@/lib/gemini');
+                const newTitle = await generateChatTitle(text);
+
+                await Conversation.updateOne(
+                    { chatId, userId },
+                    { $set: { title: newTitle } }
+                );
+                return newTitle;
+            }
         });
 
         return { userId, messageId, status: 'completed' };

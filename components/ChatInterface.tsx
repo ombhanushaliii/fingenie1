@@ -16,7 +16,6 @@ import { signOut } from "next-auth/react";
 import UserAvatar from "./UserAvatar";
 import SignInModal from "./SignInModal";
 import ThinkingIndicator, { THINKING_PHRASES } from "./ThinkingIndicator";
-import TypingTitle from "./TypingTitle";
 import ShootingStars from "@/components/ui/shooting-stars";
 import StarBackground from "@/components/ui/stars-background";
 
@@ -72,7 +71,6 @@ export default function ChatInterface({ initialChatId }: { initialChatId?: strin
     // Multi-chat state
     const [chats, setChats] = useState<Chat[]>([]);
     const [currentChatId, setCurrentChatId] = useState<string | null>(initialChatId || null);
-    const [isRenaming, setIsRenaming] = useState<string | null>(null); // Store chatId of chat being renamed
     const [isLoadingChat, setIsLoadingChat] = useState(false);
 
     // Sync state if prop changes (e.g. navigation)
@@ -273,6 +271,7 @@ export default function ChatInterface({ initialChatId }: { initialChatId?: strin
         setIsTyping(true);
 
         try {
+            console.log("Sending message to /api/chat...");
             const res = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -284,9 +283,15 @@ export default function ChatInterface({ initialChatId }: { initialChatId?: strin
                 }),
             });
 
-            if (!res.ok) throw new Error('Failed to send message');
+            console.log("Response status:", res.status);
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error("API Error:", errorText);
+                throw new Error(`Failed to send message: ${res.status} ${errorText}`);
+            }
 
             const data = await res.json();
+            console.log("API Response data:", data);
 
             // If this was a new chat
             if (data.chatId && data.chatId !== currentChatId) {
@@ -296,7 +301,7 @@ export default function ChatInterface({ initialChatId }: { initialChatId?: strin
                 isCreatingNewChatRef.current = true; // Prevent useEffect from wiping state
                 setCurrentChatId(newChatId);
 
-                // Add new chat to list
+                // Add new chat to list immediately
                 setChats(prev => {
                     const newChat: Chat = {
                         conversationId: newChatId,
@@ -305,11 +310,6 @@ export default function ChatInterface({ initialChatId }: { initialChatId?: strin
                     };
                     return [newChat, ...prev];
                 });
-
-                // Trigger renaming animation if we have a title (though title might come later from AI)
-                if (data.title) {
-                    setIsRenaming(newChatId);
-                }
             }
             // Poll for response
             const pollInterval = setInterval(async () => {
@@ -324,6 +324,16 @@ export default function ChatInterface({ initialChatId }: { initialChatId?: strin
 
                     if (pollData.messages && pollData.messages.length > 0) {
                         const lastMsg = pollData.messages[pollData.messages.length - 1];
+
+                        // Check for title update
+                        if (pollData.title && pollData.title !== "New Chat") {
+                            setChats(prev => prev.map(c =>
+                                c.conversationId === (data.chatId || currentChatId) && c.title !== pollData.title
+                                    ? { ...c, title: pollData.title }
+                                    : c
+                            ));
+                        }
+
                         if (lastMsg.sender === 'assistant' && lastMsg.timestamp > new Date(userMsg.id).toISOString()) {
                             setMessages((prev) => {
                                 // Check if we already have this message to avoid duplicates
@@ -359,7 +369,7 @@ export default function ChatInterface({ initialChatId }: { initialChatId?: strin
             }, 180000);
 
         } catch (error) {
-            console.error(error);
+            console.error("handleSend Error:", error);
             setIsTyping(false);
         }
     };
@@ -403,7 +413,10 @@ export default function ChatInterface({ initialChatId }: { initialChatId?: strin
 
                 {/* New Chat Button */}
                 <div className="px-3 mb-6 min-w-[256px]">
-                    <button className="w-full flex items-center justify-center gap-2 bg-[#1a1a1a] hover:bg-[#222] text-white py-2.5 rounded-lg border border-white/5 transition-all duration-200 shadow-sm group">
+                    <button
+                        onClick={() => router.push('/')}
+                        className="w-full flex items-center justify-center gap-2 bg-[#1a1a1a] hover:bg-[#222] text-white py-2.5 rounded-lg border border-white/5 transition-all duration-200 shadow-sm group cursor-pointer"
+                    >
                         <MessageSquare className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
                         <span className="text-sm font-medium">New Chat</span>
                     </button>
@@ -427,16 +440,7 @@ export default function ChatInterface({ initialChatId }: { initialChatId?: strin
                         >
                             <MessageSquare className={`w-4 h-4 ${currentChatId === chat.conversationId ? "text-blue-400" : "text-gray-600 group-hover:text-gray-400"
                                 } transition-colors`} />
-                            {isRenaming === chat.conversationId ? (
-                                <TypingTitle
-                                    title={chat.title}
-                                    isTyping={true}
-                                    startText="New Chat"
-                                    onComplete={() => setIsRenaming(null)}
-                                />
-                            ) : (
-                                <span className="truncate text-left">{chat.title}</span>
-                            )}
+                            <span className="truncate text-left">{chat.title}</span>
                         </button>
                     ))}
                 </div>
