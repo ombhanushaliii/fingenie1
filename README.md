@@ -3,7 +3,7 @@
 A financial advisor application using AI agents to help with investment planning, tax analysis, retirement planning, and cashflow tracking.
 
 # Video Link
-https://drive.google.com/file/d/1tlkqk9lCmEU_h8Y8ikqgLb__foM7gG4K/view?usp=sharing
+https://drive.google.com/file/d/1wI909qzAsUfh2Pmn_G4bHDE61P2xteNr/view?usp=sharing
 
 ## Tech Stack
 
